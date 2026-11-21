@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess, Square, PieceSymbol } from 'chess.js';
-import { BoardArrow, PieceColor } from '../../types/chess';
+import { BoardArrow, PieceColor, MoveQuality } from '../../types/chess';
 import { SoundService } from '../../services/soundService';
 
 interface ChessBoardContainerProps {
@@ -11,6 +11,7 @@ interface ChessBoardContainerProps {
   onPlayerMove: (from: Square, to: Square, promotion?: PieceSymbol) => boolean;
   isEngineThinking: boolean;
   playerColor: PieceColor;
+  lastMove?: { from: Square; to: Square; quality?: MoveQuality } | null;
 }
 
 export const ChessBoardContainer: React.FC<ChessBoardContainerProps> = ({
@@ -19,23 +20,27 @@ export const ChessBoardContainer: React.FC<ChessBoardContainerProps> = ({
   arrows,
   onPlayerMove,
   isEngineThinking,
-  playerColor
+  playerColor,
+  lastMove
 }) => {
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<Square[]>([]);
 
-  const isPlayerTurn = game.turn() === playerColor;
+  // Player can move whenever it is player's turn on this board position and engine is not thinking
+  const isPlayerTurn = !isEngineThinking && game.turn() === playerColor;
 
-  // Highlight possible moves on click
   const getPossibleMoves = (square: Square) => {
-    const moves = game.moves({ square, verbose: true });
-    return moves.map(m => m.to as Square);
+    try {
+      const moves = game.moves({ square, verbose: true });
+      return moves.map(m => m.to as Square);
+    } catch {
+      return [];
+    }
   };
 
   const handleSquareClick = (square: Square) => {
     if (!isPlayerTurn || isEngineThinking) return;
 
-    // If already clicked a piece and clicking target square
     if (selectedSquare) {
       if (possibleMoves.includes(square)) {
         const piece = game.get(selectedSquare);
@@ -50,7 +55,6 @@ export const ChessBoardContainer: React.FC<ChessBoardContainerProps> = ({
       }
     }
 
-    // Select piece
     const piece = game.get(square);
     if (piece && piece.color === playerColor) {
       setSelectedSquare(square);
@@ -76,69 +80,143 @@ export const ChessBoardContainer: React.FC<ChessBoardContainerProps> = ({
     return success;
   };
 
-  // Convert our BoardArrow[] to react-chessboard customArrows: [Square, Square, string][]
+  // Convert our BoardArrow[] to react-chessboard customArrows
   const customArrows: [Square, Square, string][] = arrows.map(a => [
     a.from as Square,
     a.to as Square,
     a.color
   ]);
 
-  // Custom square styles for selected square & legal move dots
+  // Square styles (Last move highlight in warm yellow, selected square, legal move dots)
   const customSquareStyles: Record<string, React.CSSProperties> = {};
 
-  if (selectedSquare) {
-    customSquareStyles[selectedSquare] = {
-      backgroundColor: 'rgba(56, 189, 248, 0.45)', // Sky blue selected
-      borderRadius: '4px'
+  // Last move warm yellow highlight (Chess.com style)
+  if (lastMove) {
+    customSquareStyles[lastMove.from] = {
+      backgroundColor: 'rgba(247, 236, 89, 0.42)'
+    };
+    customSquareStyles[lastMove.to] = {
+      backgroundColor: 'rgba(247, 236, 89, 0.52)'
     };
   }
 
+  // Selected piece highlight (Exact Chess.com cyan halo glow matching screenshot)
+  if (selectedSquare) {
+    customSquareStyles[selectedSquare] = {
+      background: 'radial-gradient(circle, rgba(82, 178, 207, 0.65) 0%, rgba(82, 178, 207, 0.35) 60%, rgba(82, 178, 207, 0.12) 100%)',
+      boxShadow: 'inset 0 0 0 2px rgba(82, 178, 207, 0.95)'
+    };
+  }
+
+  // Possible move dots (Chess.com subtle discs and capture rings)
   for (const sq of possibleMoves) {
     const isCapture = !!game.get(sq);
     customSquareStyles[sq] = {
       background: isCapture
-        ? 'radial-gradient(circle, rgba(239, 68, 68, 0.4) 80%, transparent 85%)'
-        : 'radial-gradient(circle, rgba(56, 189, 248, 0.45) 25%, transparent 26%)',
+        ? 'radial-gradient(circle, transparent 56%, rgba(0, 0, 0, 0.18) 57%, rgba(0, 0, 0, 0.18) 78%, transparent 79%)'
+        : 'radial-gradient(circle, rgba(0, 0, 0, 0.16) 24%, transparent 25%)',
       borderRadius: '50%'
     };
   }
 
-  // King in check red glow
+  // King check red glow
   if (game.inCheck()) {
     const kingSquare = findKingSquare(game, game.turn());
     if (kingSquare) {
       customSquareStyles[kingSquare] = {
-        background: 'radial-gradient(circle, rgba(239, 68, 68, 0.75) 60%, transparent 80%)',
-        boxShadow: '0 0 15px rgba(239, 68, 68, 0.8)'
+        background: 'radial-gradient(circle, rgba(239, 68, 68, 0.8) 65%, transparent 80%)'
       };
     }
   }
 
   return (
-    <div className="relative w-full aspect-square max-w-[580px] mx-auto rounded-2xl overflow-hidden shadow-2xl border-4 border-slate-800/80 bg-slate-900">
+    <div className="relative w-full aspect-square max-w-[684px] mx-auto overflow-hidden shadow-2xl select-none rounded-[4px] border border-black/40">
       <Chessboard
         position={game.fen()}
         boardOrientation={boardOrientation}
         onPieceDrop={handlePieceDrop}
         onSquareClick={handleSquareClick}
+        isDraggablePiece={({ piece }) => !isEngineThinking && isPlayerTurn && piece[0] === playerColor}
         customArrows={customArrows}
         customSquareStyles={customSquareStyles}
         areArrowsAllowed={true}
-        customDarkSquareStyle={{ backgroundColor: '#475569' }}
-        customLightSquareStyle={{ backgroundColor: '#cbd5e1' }}
+        snapToCursor={true}
+        // Classic Brown Wooden Chessboard colors
+        customDarkSquareStyle={{ backgroundColor: '#b58863' }}
+        customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
         customBoardStyle={{
-          borderRadius: '12px',
-          boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.3)'
+          borderRadius: '2px',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
         }}
-        animationDuration={220}
+        animationDuration={300}
       />
 
-      {isEngineThinking && (
-        <div className="absolute top-4 right-4 bg-slate-900/90 text-sky-400 border border-sky-500/40 px-3 py-1.5 rounded-full flex items-center gap-2 text-xs font-semibold backdrop-blur shadow-lg animate-pulse">
-          <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
-          Coach is thinking...
-        </div>
+      {/* Quality Badge Overlay on Last Move (e.g. ?!, !, ??) like Chess.com */}
+      {lastMove && lastMove.quality && lastMove.quality !== 'good' && (
+        <MoveBadgeOverlay
+          targetSquare={lastMove.to}
+          quality={lastMove.quality}
+          boardOrientation={boardOrientation}
+        />
       )}
+    </div>
+  );
+};
+
+// Chess.com style badge on square (e.g. "?!", "!", "??", "📖")
+const MoveBadgeOverlay: React.FC<{
+  targetSquare: Square;
+  quality: MoveQuality;
+  boardOrientation: 'white' | 'black';
+}> = ({ targetSquare, quality, boardOrientation }) => {
+  const file = targetSquare.charCodeAt(0) - 97; // 0..7 (a..h)
+  const rank = parseInt(targetSquare[1]) - 1; // 0..7 (1..8)
+
+  const col = boardOrientation === 'white' ? file : 7 - file;
+  const row = boardOrientation === 'white' ? 7 - rank : rank;
+
+  // Percentage offset to top-right of the square
+  const leftPercent = col * 12.5 + 8.8;
+  const topPercent = row * 12.5 + 0.8;
+
+  let text = '';
+  let bg = '';
+
+  switch (quality) {
+    case 'book':
+      text = '📖';
+      bg = 'bg-blue-500';
+      break;
+    case 'best':
+      text = '★';
+      bg = 'bg-[#81b64c]';
+      break;
+    case 'excellent':
+      text = '!';
+      bg = 'bg-[#5c8bb0]';
+      break;
+    case 'inaccuracy':
+      text = '?!';
+      bg = 'bg-[#f7c044] text-zinc-900';
+      break;
+    case 'mistake':
+      text = '?';
+      bg = 'bg-[#e58f2a] text-white';
+      break;
+    case 'blunder':
+      text = '??';
+      bg = 'bg-[#ca3431] text-white';
+      break;
+    default:
+      return null;
+  }
+
+  return (
+    <div
+      style={{ left: `${leftPercent}%`, top: `${topPercent}%` }}
+      className={`absolute z-10 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shadow-md border border-white/50 pointer-events-none select-none ${bg}`}
+    >
+      {text}
     </div>
   );
 };

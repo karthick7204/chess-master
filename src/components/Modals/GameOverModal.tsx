@@ -7,7 +7,9 @@ interface GameOverModalProps {
   isOpen: boolean;
   winner: 'player' | 'coach' | 'draw' | null;
   reason: string;
-  commentaries: CoachCommentary[];
+  commentaries?: CoachCommentary[];
+  opponentName?: string;
+  isVsMode?: boolean;
   onPlayAgain: () => void;
 }
 
@@ -15,7 +17,9 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   isOpen,
   winner,
   reason,
-  commentaries,
+  commentaries = [],
+  opponentName = 'Computer',
+  isVsMode = false,
   onPlayAgain
 }) => {
   useEffect(() => {
@@ -53,27 +57,33 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
         </div>
 
         <h3 className="text-xl font-bold text-white mb-1">
-          {winner === 'player' ? 'Victory! You Won!' : winner === 'coach' ? 'Coach Won the Game' : 'Game Drawn'}
+          {winner === 'player'
+            ? 'Victory! You Won!'
+            : winner === 'coach'
+            ? `${isVsMode ? opponentName : 'Coach'} Won the Game`
+            : 'Game Drawn'}
         </h3>
         <p className="text-xs text-slate-400 mb-5">
           {reason}
         </p>
 
-        {/* Stats card */}
-        <div className="bg-slate-950/70 rounded-xl p-3 border border-slate-800/80 mb-5 text-xs grid grid-cols-3 gap-2">
-          <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
-            <span className="block font-bold text-emerald-400 text-sm">{bestCount}</span>
-            <span className="text-[10px] text-slate-400">Best Moves</span>
+        {/* Stats card (Only for Coach instructional mode with critiques) */}
+        {!isVsMode && commentaries.length > 0 && (
+          <div className="bg-slate-950/70 rounded-xl p-3 border border-slate-800/80 mb-5 text-xs grid grid-cols-3 gap-2">
+            <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
+              <span className="block font-bold text-emerald-400 text-sm">{bestCount}</span>
+              <span className="text-[10px] text-slate-400">Best Moves</span>
+            </div>
+            <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
+              <span className="block font-bold text-blue-400 text-sm">{bookCount}</span>
+              <span className="text-[10px] text-slate-400">Book Moves</span>
+            </div>
+            <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
+              <span className="block font-bold text-red-400 text-sm">{blunderCount}</span>
+              <span className="text-[10px] text-slate-400">Blunders</span>
+            </div>
           </div>
-          <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
-            <span className="block font-bold text-blue-400 text-sm">{bookCount}</span>
-            <span className="text-[10px] text-slate-400">Book Moves</span>
-          </div>
-          <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
-            <span className="block font-bold text-red-400 text-sm">{blunderCount}</span>
-            <span className="text-[10px] text-slate-400">Blunders</span>
-          </div>
-        </div>
+        )}
 
         <button
           onClick={onPlayAgain}

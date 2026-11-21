@@ -2,64 +2,53 @@ import React from 'react';
 
 interface EvaluationBarProps {
   score: number; // Centipawns from White's perspective (+100 is +1 pawn)
-  scoreDisplay: string;
   isFlipped: boolean;
 }
 
 export const EvaluationBar: React.FC<EvaluationBarProps> = ({
   score,
-  scoreDisplay,
   isFlipped
 }) => {
-  // Clamp score between -1000 and +1000 centipawns for bar visualization
+  // Clamp score between -1000 and +1000 centipawns
   const clamped = Math.max(-1000, Math.min(1000, score));
-  // Convert -1000..+1000 to 0..100 percentage for White
-  // 0 centipawns = 50%
   const whitePercent = 50 + (clamped / 1000) * 45;
   const blackPercent = 100 - whitePercent;
 
   const topPercent = isFlipped ? whitePercent : blackPercent;
   const bottomPercent = isFlipped ? blackPercent : whitePercent;
 
+  // Format absolute numeric score e.g. "1.5" or "0.0"
+  const formattedScore = Math.abs(score / 100).toFixed(1);
+
   return (
-    <div className="relative w-7 h-full min-h-[460px] bg-slate-900 rounded-lg overflow-hidden flex flex-col border border-slate-800 shadow-inner select-none">
+    <div className="relative w-6 h-full min-h-[540px] bg-[#312e2b] overflow-hidden flex flex-col rounded-l-[4px] border border-black/40 shadow-inner select-none">
       {/* Top Section */}
       <div
-        className={`w-full transition-all duration-500 flex items-start justify-center pt-2 ${
-          isFlipped ? 'bg-slate-100 text-slate-900' : 'bg-slate-900 text-slate-200'
+        className={`w-full transition-all duration-300 flex items-start justify-center pt-1.5 ${
+          isFlipped ? 'bg-white text-zinc-900' : 'bg-[#312e2b] text-zinc-100'
         }`}
         style={{ height: `${topPercent}%` }}
       >
-        {!isFlipped && score < -50 && (
-          <span className="text-[11px] font-bold font-mono px-0.5">
-            {scoreDisplay}
-          </span>
-        )}
-        {isFlipped && score > 50 && (
-          <span className="text-[11px] font-bold font-mono px-0.5">
-            {scoreDisplay}
+        {((!isFlipped && score < -30) || (isFlipped && score > 30)) && (
+          <span className="text-[10px] font-bold font-mono px-0.5 leading-none">
+            {formattedScore}
           </span>
         )}
       </div>
 
       {/* Center Divider Line */}
-      <div className="w-full h-[1px] bg-emerald-500/40 z-10" />
+      <div className="w-full h-[1px] bg-zinc-600/50 z-10" />
 
       {/* Bottom Section */}
       <div
-        className={`w-full transition-all duration-500 flex items-end justify-center pb-2 ${
-          isFlipped ? 'bg-slate-900 text-slate-200' : 'bg-slate-100 text-slate-900'
+        className={`w-full transition-all duration-300 flex items-end justify-center pb-1.5 ${
+          isFlipped ? 'bg-[#312e2b] text-zinc-100' : 'bg-white text-zinc-900'
         }`}
         style={{ height: `${bottomPercent}%` }}
       >
-        {!isFlipped && score >= -50 && (
-          <span className="text-[11px] font-bold font-mono px-0.5">
-            {scoreDisplay}
-          </span>
-        )}
-        {isFlipped && score <= 50 && (
-          <span className="text-[11px] font-bold font-mono px-0.5">
-            {scoreDisplay}
+        {((!isFlipped && score >= -30) || (isFlipped && score <= 30)) && (
+          <span className="text-[10px] font-bold font-mono px-0.5 leading-none">
+            {formattedScore}
           </span>
         )}
       </div>

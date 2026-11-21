@@ -1,22 +1,20 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { CoachCommentary, CoachPersonality, OpeningInfo } from '../../types/chess';
-import { CommentaryBubble } from './CommentaryBubble';
-import { Volume2, VolumeX, Pause, Play, Undo2, Lightbulb, ShieldAlert, Sparkles, Compass, Award } from 'lucide-react';
+import { Volume2, VolumeX, Flag, Lightbulb, Undo2, Share2, Download, Settings, BookOpen, Info } from 'lucide-react';
 
 interface CoachPanelProps {
   personality: CoachPersonality;
   commentaries: CoachCommentary[];
   currentOpening: OpeningInfo | null;
   voiceEnabled: boolean;
-  isAudioPaused: boolean;
-  isAudioPlaying: boolean;
   onToggleVoice: () => void;
-  onTogglePause: () => void;
   onTakeBack: () => void;
   onShowHint: () => void;
-  onShowThreat: () => void;
-  onPreviewMove?: (from: string, to: string) => void;
+  onResign: () => void;
+  onOpenSettings: () => void;
   canTakeBack: boolean;
+  viewingIndex: number;
+  onSelectMoveIndex: (index: number) => void;
 }
 
 export const CoachPanel: React.FC<CoachPanelProps> = ({
@@ -24,164 +22,223 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
   commentaries,
   currentOpening,
   voiceEnabled,
-  isAudioPaused,
-  isAudioPlaying,
   onToggleVoice,
-  onTogglePause,
   onTakeBack,
   onShowHint,
-  onShowThreat,
-  onPreviewMove,
-  canTakeBack
+  onResign,
+  onOpenSettings,
+  canTakeBack,
+  viewingIndex,
+  onSelectMoveIndex
 }) => {
-  const feedEndRef = useRef<HTMLDivElement>(null);
+  // Extract latest Coach move speech and latest Player move critique
+  let latestCoachComment: CoachCommentary | null = null;
+  let latestPlayerCritique: CoachCommentary | null = null;
 
-  useEffect(() => {
-    feedEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [commentaries]);
+  for (let i = commentaries.length - 1; i >= 0; i--) {
+    const c = commentaries[i];
+    if (!latestPlayerCritique && c.quality !== undefined) {
+      latestPlayerCritique = c;
+    }
+    if (!latestCoachComment && c.quality === undefined) {
+      latestCoachComment = c;
+    }
+    if (latestCoachComment && latestPlayerCritique) break;
+  }
 
-  const latestCommentary = commentaries[commentaries.length - 1];
+  // Group moves into pairs (1. d4 e6 ...) for the move notation table
+  const movePairs: { moveNum: number; whiteIndex: number; whiteSan?: string; blackIndex?: number; blackSan?: string }[] = [];
+  for (let i = 0; i < commentaries.length; i++) {
+    const c = commentaries[i];
+    const turnNum = c.moveNumber;
+    let pair = movePairs.find(p => p.moveNum === turnNum);
+    if (!pair) {
+      pair = { moveNum: turnNum, whiteIndex: i };
+      movePairs.push(pair);
+    }
+    if (c.playerColor === 'w') {
+      pair.whiteIndex = i + 1; // FEN index
+      pair.whiteSan = c.san;
+    } else {
+      pair.blackIndex = i + 1; // FEN index
+      pair.blackSan = c.san;
+    }
+  }
 
   return (
-    <div className="flex flex-col h-full bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm">
-      {/* Coach Header Profile */}
-      <div className="p-4 border-b border-slate-800 bg-gradient-to-r from-slate-900 via-slate-800/80 to-slate-900 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-12 h-12 rounded-full bg-sky-500/10 border-2 border-sky-400/40 flex items-center justify-center text-2xl shadow-inner">
+    <div className="flex flex-col h-full bg-[#21201d] text-white rounded-lg overflow-hidden shadow-2xl border border-[#312e2b] select-none">
+      {/* Top Header: "Play Coach" centered + Volume Toggle */}
+      <div className="px-4 py-3 border-b border-[#2b2926] flex items-center justify-between relative bg-[#21201d]">
+        <div className="w-6" /> {/* Spacer */}
+        <h2 className="font-bold text-sm tracking-wide text-zinc-100 uppercase text-center flex-1">
+          Play Coach
+        </h2>
+        <button
+          onClick={onToggleVoice}
+          title={voiceEnabled ? "Mute Voice (Spacebar skips)" : "Enable Voice"}
+          className="text-zinc-400 hover:text-white p-1 rounded transition"
+        >
+          {voiceEnabled ? <Volume2 className="w-4 h-4 text-zinc-300" /> : <VolumeX className="w-4 h-4 text-zinc-600" />}
+        </button>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4">
+        {/* Coach Speech Section (Matching Screenshot) */}
+        <div className="flex items-start gap-3">
+          {/* Coach Avatar */}
+          <div className="relative shrink-0">
+            <div className="w-14 h-14 rounded-full bg-[#312e2b] border border-zinc-700/60 overflow-hidden flex items-center justify-center text-3xl shadow-md">
               {personality.avatar}
             </div>
-            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-950 rounded-full" />
           </div>
 
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-white text-base leading-tight">
-                {personality.name}
-              </h3>
-              {/* Coach Rating Badge */}
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1 shadow-sm">
-                <Award className="w-3 h-3 text-amber-400" />
-                Rating: {personality.rating} ELO
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {personality.title}
-            </p>
+          {/* Chat Bubbles */}
+          <div className="flex-1 flex flex-col gap-2.5 min-w-0">
+            {/* Bubble 1: Coach's own move explanation */}
+            {latestCoachComment ? (
+              <div className="relative bg-white text-zinc-900 rounded-2xl p-3 shadow-md text-xs leading-relaxed font-medium">
+                {/* Speech Bubble Arrow Tail */}
+                <div className="absolute top-3 -left-1.5 w-3 h-3 bg-white transform rotate-45" />
+                <p>{latestCoachComment.explanation}</p>
+              </div>
+            ) : (
+              <div className="relative bg-white text-zinc-900 rounded-2xl p-3 shadow-md text-xs leading-relaxed font-medium">
+                <div className="absolute top-3 -left-1.5 w-3 h-3 bg-white transform rotate-45" />
+                <p>Hello! I am {personality.name}. Make your first move to begin the game!</p>
+              </div>
+            )}
+
+            {/* Bubble 2: Coach's critique on player's move */}
+            {latestPlayerCritique && (
+              <div className="relative bg-white text-zinc-900 rounded-2xl p-3 shadow-md text-xs leading-relaxed font-medium">
+                <div className="absolute top-3 -left-1.5 w-3 h-3 bg-white transform rotate-45" />
+                <p>
+                  <span className="font-bold text-zinc-950 block mb-0.5">{latestPlayerCritique.title}:</span>
+                  {latestPlayerCritique.explanation}
+                </p>
+                {latestPlayerCritique.threatExplanation && (
+                  <p className="mt-1.5 text-red-600 font-semibold text-[11px]">
+                    ⚠️ {latestPlayerCritique.threatExplanation}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Audio Controls: Pause/Resume + Mute/Unmute */}
-        <div className="flex items-center gap-1.5">
-          {voiceEnabled && (
-            <button
-              onClick={onTogglePause}
-              disabled={!isAudioPlaying && !isAudioPaused}
-              title={isAudioPaused ? "Resume Audio" : "Pause Audio"}
-              className={`p-2 rounded-lg border transition ${
-                isAudioPaused
-                  ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 hover:bg-amber-500/30'
-                  : isAudioPlaying
-                  ? 'bg-sky-500/20 border-sky-500/40 text-sky-300 hover:bg-sky-500/30 animate-pulse'
-                  : 'bg-slate-800/60 border-slate-800 text-slate-500 opacity-60 cursor-not-allowed'
-              }`}
-            >
-              {isAudioPaused ? <Play className="w-4 h-4 fill-amber-300" /> : <Pause className="w-4 h-4" />}
-            </button>
-          )}
+        {/* Divider */}
+        <div className="border-t border-[#2b2926] pt-3">
+          {/* Opening Title Row */}
+          <div className="flex items-center justify-between text-xs text-zinc-400 mb-2 px-1">
+            <span className="font-semibold text-zinc-300 truncate">
+              {currentOpening ? `${currentOpening.name}` : "Opening Phase"}
+            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <BookOpen className="w-3.5 h-3.5 text-zinc-400 hover:text-white cursor-pointer" />
+              <Info className="w-3.5 h-3.5 text-zinc-400 hover:text-white cursor-pointer" />
+            </div>
+          </div>
 
+          {/* Move Notation Table (Chess.com Style) */}
+          <div className="bg-[#1e1d1a] rounded-lg p-2.5 max-h-80 overflow-y-auto text-xs font-mono border border-[#2b2926]">
+            {movePairs.length === 0 ? (
+              <div className="text-zinc-600 italic py-2 text-center text-[11px]">
+                Moves will appear here
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {movePairs.map(p => (
+                  <div key={p.moveNum} className="grid grid-cols-7 py-0.5 px-1 rounded hover:bg-[#2b2926]/60">
+                    <span className="col-span-1 text-zinc-500 font-bold">
+                      {p.moveNum}.
+                    </span>
+
+                    {/* White Move */}
+                    <button
+                      onClick={() => onSelectMoveIndex(p.whiteIndex)}
+                      className={`col-span-3 text-left px-1 rounded transition ${
+                        viewingIndex === p.whiteIndex
+                          ? 'bg-[#3d3a36] text-amber-300 font-bold'
+                          : 'text-zinc-200 hover:text-white'
+                      }`}
+                    >
+                      {p.whiteSan || ''}
+                    </button>
+
+                    {/* Black Move */}
+                    {p.blackSan ? (
+                      <button
+                        onClick={() => onSelectMoveIndex(p.blackIndex!)}
+                        className={`col-span-3 text-left px-1 rounded transition ${
+                          viewingIndex === p.blackIndex
+                            ? 'bg-[#3d3a36] text-amber-300 font-bold'
+                            : 'text-zinc-200 hover:text-white'
+                        }`}
+                      >
+                        {p.blackSan}
+                      </button>
+                    ) : (
+                      <span className="col-span-3 text-zinc-600">...</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Action Bar (3 Big Iconic Chess.com Buttons) */}
+      <div className="p-3 bg-[#262522] border-t border-[#2b2926]">
+        <div className="grid grid-cols-3 gap-2 mb-2.5">
+          {/* Resign Flag Button */}
           <button
-            onClick={onToggleVoice}
-            title={voiceEnabled ? "Mute Coach Voice" : "Enable Coach Voice"}
-            className={`p-2 rounded-lg border transition ${
-              voiceEnabled
-                ? 'bg-sky-500/15 border-sky-500/30 text-sky-400 hover:bg-sky-500/25'
-                : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'
-            }`}
+            onClick={onResign}
+            title="Resign Game"
+            className="h-11 rounded-lg bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-400 hover:text-white flex items-center justify-center transition border border-[#363430]"
           >
-            {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            <Flag className="w-5 h-5 fill-current" />
+          </button>
+
+          {/* Big Green Hint Button */}
+          <button
+            onClick={onShowHint}
+            title="Get Best Move Hint"
+            className="h-11 rounded-lg bg-[#81b64c] hover:bg-[#a3d160] text-white flex items-center justify-center transition shadow-md shadow-[#81b64c]/20"
+          >
+            <Lightbulb className="w-5 h-5 fill-current" />
+          </button>
+
+          {/* Undo / Take Back Button */}
+          <button
+            onClick={onTakeBack}
+            disabled={!canTakeBack}
+            title="Take Back Move"
+            className="h-11 rounded-lg bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-400 hover:text-white flex items-center justify-center transition border border-[#363430] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Undo2 className="w-5 h-5" />
           </button>
         </div>
-      </div>
 
-      {/* Opening Explorer Card */}
-      {currentOpening && (
-        <div className="p-3 mx-4 mt-3 rounded-xl bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/30 text-xs">
-          <div className="flex items-center justify-between mb-1">
-            <span className="flex items-center gap-1.5 font-bold text-indigo-300">
-              <Compass className="w-3.5 h-3.5" />
-              {currentOpening.name}
-            </span>
-            <span className="font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30">
-              {currentOpening.eco}
-            </span>
+        {/* Bottom Utility Bar: Share, Download, Settings + Spacebar hint */}
+        <div className="flex items-center justify-between px-1 text-zinc-500 text-xs">
+          <div className="flex items-center gap-3">
+            <button title="Share Game" className="hover:text-zinc-300 transition">
+              <Share2 className="w-4 h-4" />
+            </button>
+            <button title="Export PGN" className="hover:text-zinc-300 transition">
+              <Download className="w-4 h-4" />
+            </button>
+            <button onClick={onOpenSettings} title="Settings" className="hover:text-zinc-300 transition">
+              <Settings className="w-4 h-4" />
+            </button>
           </div>
-          <p className="text-slate-400 leading-relaxed text-[11px]">
-            {currentOpening.description}
-          </p>
-        </div>
-      )}
 
-      {/* Interactive Quick Actions Bar */}
-      <div className="p-3 mx-4 mt-2 flex items-center gap-2 border-b border-slate-800/80 pb-3">
-        <button
-          onClick={onTakeBack}
-          disabled={!canTakeBack}
-          className="flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition"
-        >
-          <Undo2 className="w-3.5 h-3.5" />
-          Take Back
-        </button>
-
-        <button
-          onClick={onShowHint}
-          className="flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-300 border border-emerald-500/30 flex items-center justify-center gap-1.5 transition"
-        >
-          <Lightbulb className="w-3.5 h-3.5 text-emerald-400" />
-          Best Move
-        </button>
-
-        <button
-          onClick={onShowThreat}
-          className="flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-red-950/40 hover:bg-red-900/40 text-red-300 border border-red-500/30 flex items-center justify-center gap-1.5 transition"
-        >
-          <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
-          Threat
-        </button>
-      </div>
-
-      {/* Commentary Stream Feed */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-        {commentaries.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
-            <Sparkles className="w-8 h-8 mb-2 text-sky-400/50 animate-bounce" />
-            <p className="text-sm font-semibold text-slate-300 mb-1">Coach is ready!</p>
-            <p className="text-xs text-slate-400 max-w-xs">
-              Make your opening move on the board. I will identify your opening, critique every move, and explain the strategy behind each of mine.
-            </p>
-          </div>
-        ) : (
-          commentaries.map(item => (
-            <CommentaryBubble
-              key={item.id}
-              commentary={item}
-              onPreviewMove={onPreviewMove}
-            />
-          ))
-        )}
-        <div ref={feedEndRef} />
-      </div>
-
-      {/* Bottom Status: Clean Move Progress (Removed 'Real-time Engine Active') */}
-      <div className="p-2.5 bg-slate-950/70 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
-        <span className="text-slate-400">
-          {latestCommentary ? `Last move: ${latestCommentary.san}` : 'Game in progress'}
-        </span>
-        {latestCommentary && (
-          <span className="font-mono text-slate-500 font-semibold">
-            Turn #{latestCommentary.moveNumber}
+          <span className="text-[10px] text-zinc-500 font-mono">
+            [Space] skip voice
           </span>
-        )}
+        </div>
       </div>
     </div>
   );

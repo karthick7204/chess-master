@@ -7,12 +7,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        chess: {
-          dark: '#1e293b',
-          boardDark: '#739552',
-          boardLight: '#ebecd0',
-          accent: '#38bdf8',
-          gold: '#eab308'
+        chesscom: {
+          bg: '#262522',
+          panel: '#21201d',
+          card: '#2b2926',
+          border: '#363430',
+          button: '#312e2b',
+          buttonHover: '#3d3a36',
+          green: '#81b64c',
+          greenHover: '#a3d160',
+          brownDark: '#b58863',
+          brownLight: '#f0d9b5'
         }
       }
     },

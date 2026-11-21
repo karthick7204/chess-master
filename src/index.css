@@ -24,3 +24,8 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 116, 139, 1);
 }
+
+/* Chess.com smooth cubic-bezier easing for piece slide animation without overriding duration */
+div[data-piece] {
+  transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
+}

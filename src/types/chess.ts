@@ -61,6 +61,64 @@ export interface CoachPersonality {
   description: string;
 }
 
+export interface ComputerBot {
+  id: string;
+  name: string;
+  title: string;
+  avatar: string;
+  rating: number;
+  difficulty: number; // 1 (600) to 5 (2200+)
+  description: string;
+}
+
+export const COMPUTER_BOTS: ComputerBot[] = [
+  {
+    id: 'jimmy',
+    name: 'Jimmy',
+    title: 'Beginner',
+    avatar: '🧒',
+    rating: 600,
+    difficulty: 1,
+    description: 'Casual beginner bot, still learning piece coordination.'
+  },
+  {
+    id: 'martin',
+    name: 'Martin',
+    title: 'Casual',
+    avatar: '👨‍🦰',
+    rating: 1000,
+    difficulty: 2,
+    description: 'Plays steady opening moves and seeks simple trades.'
+  },
+  {
+    id: 'nelson',
+    name: 'Nelson',
+    title: 'Intermediate',
+    avatar: '🧔‍♂️',
+    rating: 1400,
+    difficulty: 3,
+    description: 'Tricky attacking bot with active queen and knight raids.'
+  },
+  {
+    id: 'elena',
+    name: 'Elena',
+    title: 'Advanced',
+    avatar: '👩‍💼',
+    rating: 1800,
+    difficulty: 4,
+    description: 'Strong tactical fundamentals, solid defense, and endgame play.'
+  },
+  {
+    id: 'stockfish',
+    name: 'Stockfish Master',
+    title: 'Master Engine',
+    avatar: '🤖',
+    rating: 2200,
+    difficulty: 5,
+    description: 'Deep minimax calculation with zero-token positional precision.'
+  }
+];
+
 export interface GameSettings {
   playerColor: PieceColor;
   difficulty: number; // 1 (800 ELO) to 5 (2200 ELO)
