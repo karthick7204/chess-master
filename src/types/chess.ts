@@ -22,6 +22,16 @@ export interface TacticalContext {
   pawnStructureNote?: string;
 }
 
+export interface CandidateOption {
+  san: string;
+  from: string;
+  to: string;
+  reason: string;
+  badge: 'best' | 'alternative';
+  arrowColor: string; // '#81b64c' (green), '#38bdf8' (blue)
+  scoreDisplay?: string;
+}
+
 export interface CoachCommentary {
   id: string;
   speaker: 'coach' | 'system';
@@ -40,6 +50,7 @@ export interface CoachCommentary {
     to: string;
     reason: string;
   };
+  candidateOptions?: CandidateOption[];
   arrows?: BoardArrow[];
   timestamp: number;
 }

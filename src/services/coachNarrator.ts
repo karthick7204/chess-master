@@ -1,11 +1,11 @@
 import { Chess, Square, Move } from 'chess.js';
-import { CoachCommentary, MoveQuality, BoardArrow } from '../types/chess';
+import { CoachCommentary, MoveQuality, BoardArrow, CandidateOption } from '../types/chess';
 import { findOpeningByMoves } from '../data/openings';
 import { analyzeMoveTactics, findHangingPiece } from './tacticalAnalyzer';
-import { ChessAnalysisEngine, EngineResult } from './stockfishEngine';
+import { ChessAnalysisEngine, EvaluatedCandidateMove } from './stockfishEngine';
 
 export class CoachNarrator {
-  // Generate coach's commentary when the COACH makes a move
+  // Generate coach's commentary when the COACH makes a move (Master GM level)
   public static explainCoachMove(
     gameBefore: Chess,
     gameAfter: Chess,
@@ -16,7 +16,7 @@ export class CoachNarrator {
     const tactics = analyzeMoveTactics(gameBefore, gameAfter, move.from as Square, move.to as Square);
     const opening = findOpeningByMoves(sanHistory);
 
-    let title = `My Move: ${move.san}`;
+    let title = `Coach Move: ${move.san}`;
     let explanation = "";
 
     const arrows: BoardArrow[] = [
@@ -28,25 +28,25 @@ export class CoachNarrator {
       explanation = `My ${move.san} delivers checkmate. You have no legal moves left to block or escape.`;
     } else if (tactics.isCheck) {
       title = `Check! King under attack`;
-      explanation = `I'm delivering a check with ${move.san}. Notice how this forces you to spend a tempo dealing with king safety.`;
+      explanation = `I am delivering a check with ${move.san}. This forces an immediate response and takes away your initiative.`;
     } else if (tactics.materialCaptured) {
-      title = `Tactical Capture: Won ${tactics.materialCaptured.piece}`;
-      explanation = `I captured your ${tactics.materialCaptured.piece.toLowerCase()} on ${move.to}. In chess, grabbing unguarded or under-defended material gives a decisive edge.`;
+      title = `Winning Material: ${tactics.materialCaptured.piece}`;
+      explanation = `I captured your ${tactics.materialCaptured.piece.toLowerCase()} on ${move.to}. In chess, capturing undefended material gives a decisive long-term edge.`;
     } else if (tactics.isFork) {
       title = `Double Attack (Fork)!`;
       explanation = `By placing my ${tactics.isFork.piece} on ${move.to}, I am attacking multiple targets at the same time: ${tactics.isFork.targets.join(' and ')}.`;
     } else if (tactics.castled) {
       title = `Kingside Castling: Safety & Coordination`;
-      explanation = `I'm castling to tuck my King safely behind a solid pawn wall while connecting my Rooks to control the open central files.`;
+      explanation = `I am castling to tuck my King safely behind a solid pawn shield while connecting my Rooks to dominate open central files.`;
     } else if (tactics.pieceDeveloped) {
       title = `Developing ${tactics.pieceDeveloped.piece} to ${move.to}`;
-      explanation = `In the opening phase, activating minor pieces (knights and bishops) toward the center is fundamental. My ${tactics.pieceDeveloped.piece.toLowerCase()} now exerts pressure across key squares.`;
+      explanation = `Activating minor pieces toward the center is fundamental. My ${tactics.pieceDeveloped.piece.toLowerCase()} now exerts pressure across key squares.`;
     } else if (tactics.centerControlGained) {
       title = `Controlling the Center: ${move.san}`;
-      explanation = `I pushed to ${move.to} to contest the vital central squares. Whoever controls the center has greater mobility and attacking freedom.`;
+      explanation = `I pushed to ${move.to} to contest the center. Whoever controls central squares dictates the flow of the game.`;
     } else {
-      title = `Strategic Maneuver: ${move.san}`;
-      explanation = `I played ${move.san} to optimize my piece placement, restrict your potential counterplay, and prepare future tactical breaks.`;
+      title = `Grandmaster Move: ${move.san}`;
+      explanation = `I played ${move.san} to optimize my piece placement, restrict your counterplay, and prepare future tactical breaks.`;
     }
 
     return {
@@ -64,14 +64,14 @@ export class CoachNarrator {
     };
   }
 
-  // Generate critique and analysis when the PLAYER makes a move
+  // Generate human-like critique and candidate alternatives when the PLAYER makes a move
   public static critiquePlayerMove(
     gameBefore: Chess,
     gameAfter: Chess,
     move: Move,
     sanHistory: string[],
     moveNumber: number,
-    bestAlternativeBeforeMove: EngineResult | null
+    candidateMoves: EvaluatedCandidateMove[]
   ): CoachCommentary {
     const tactics = analyzeMoveTactics(gameBefore, gameAfter, move.from as Square, move.to as Square);
     const opening = findOpeningByMoves(sanHistory);
@@ -81,15 +81,18 @@ export class CoachNarrator {
     const evalAfter = ChessAnalysisEngine.evaluatePosition(gameAfter);
 
     const isWhite = move.color === 'w';
-    // Eval change from player's perspective (positive is good for player)
     const evalDiff = isWhite ? (evalAfter - evalBefore) : (evalBefore - evalAfter);
+
+    // Check if player's move is among the top engine candidate moves
+    const topMove = candidateMoves[0];
+    const isPlayerBestMove = topMove && topMove.from === move.from && topMove.to === move.to;
 
     let quality: MoveQuality = 'good';
     const isBookMove = !!(opening && opening.moves.length >= sanHistory.length);
 
     if (isBookMove && moveNumber <= 10) {
       quality = 'book';
-    } else if (evalDiff >= 20) {
+    } else if (isPlayerBestMove || evalDiff >= 15) {
       quality = 'best';
     } else if (evalDiff >= -25) {
       quality = 'excellent';
@@ -109,96 +112,138 @@ export class CoachNarrator {
       quality = 'blunder';
     }
 
-    let title = "";
-    let explanation = "";
-    let threatExplanation = "";
+    // Filter candidate options to get better alternatives (excluding the move the player actually played)
+    const betterMoves = candidateMoves.filter(c => !(c.from === move.from && c.to === move.to));
+
+    const candidateOptions: CandidateOption[] = [];
     const arrows: BoardArrow[] = [];
 
-    // Green arrow for player move if good, or green arrow for best move if inaccuracy/blunder
-    if (bestAlternativeBeforeMove && (quality === 'inaccuracy' || quality === 'mistake' || quality === 'blunder')) {
-      arrows.push({
-        from: bestAlternativeBeforeMove.bestMove.from,
-        to: bestAlternativeBeforeMove.bestMove.to,
-        color: '#22c55e' // Green recommended arrow
-      });
-    }
+    // 1. Arrow for the user's played move
+    const playerArrowColor =
+      quality === 'best'
+        ? '#22c55e'
+        : quality === 'blunder'
+        ? '#ef4444'
+        : quality === 'mistake'
+        ? '#f97316'
+        : quality === 'inaccuracy'
+        ? '#eab308'
+        : '#81b64c';
 
-    // Highlight user's move
     arrows.push({
       from: move.from,
       to: move.to,
-      color: quality === 'blunder' ? '#ef4444' : quality === 'mistake' ? '#f97316' : '#22c55e'
+      color: playerArrowColor
     });
 
-    // Opening recognition commentary
+    // 2. Arrows & options for better alternatives
+    if (!isPlayerBestMove && betterMoves.length > 0) {
+      // Best alternative (Green Arrow)
+      const bestOpt = betterMoves[0];
+      candidateOptions.push({
+        san: bestOpt.san,
+        from: bestOpt.from,
+        to: bestOpt.to,
+        reason: bestOpt.reason,
+        badge: 'best',
+        arrowColor: '#81b64c',
+        scoreDisplay: bestOpt.scoreDisplay
+      });
+      arrows.push({
+        from: bestOpt.from,
+        to: bestOpt.to,
+        color: '#81b64c' // Green arrow for best move
+      });
+
+      // Second alternative (Blue Arrow)
+      if (betterMoves.length > 1) {
+        const secondOpt = betterMoves[1];
+        candidateOptions.push({
+          san: secondOpt.san,
+          from: secondOpt.from,
+          to: secondOpt.to,
+          reason: secondOpt.reason,
+          badge: 'alternative',
+          arrowColor: '#38bdf8',
+          scoreDisplay: secondOpt.scoreDisplay
+        });
+        arrows.push({
+          from: secondOpt.from,
+          to: secondOpt.to,
+          color: '#38bdf8' // Blue arrow for 2nd alternative
+        });
+      }
+    } else if (isPlayerBestMove && betterMoves.length > 0) {
+      // If player played the best move, show other good alternatives too
+      const alt1 = betterMoves[0];
+      candidateOptions.push({
+        san: alt1.san,
+        from: alt1.from,
+        to: alt1.to,
+        reason: alt1.reason,
+        badge: 'alternative',
+        arrowColor: '#38bdf8',
+        scoreDisplay: alt1.scoreDisplay
+      });
+      arrows.push({
+        from: alt1.from,
+        to: alt1.to,
+        color: '#38bdf8'
+      });
+    }
+
+    let title = "";
+    let explanation = "";
+    let threatExplanation = "";
+
+    // Opening recognition
     if (opening && sanHistory.length <= opening.moves.length + 1) {
       if (quality === 'book') {
         title = `Book Move: ${opening.name}`;
-        explanation = `You are following standard theory in the ${opening.name} (ECO ${opening.eco}). ${opening.description}`;
+        explanation = `You played ${move.san}, following standard grandmaster theory in the ${opening.name} (ECO ${opening.eco}).`;
       } else {
         title = `${capitalize(quality)} in the ${opening.name}`;
       }
     }
 
-    // Move quality specific pedagogical commentary
-    if (quality === 'book') {
-      // already set
+    // Pedagogical commentary comparing move with options
+    if (quality === 'best') {
+      title = `Best Move! 🌟 ${move.san}`;
+      explanation = `You found the most accurate move on the board! Playing ${move.san} keeps your position active and maintains optimal piece harmony.`;
     } else if (tactics.isCheckmate) {
       title = `Brilliant Checkmate! 🎉`;
-      explanation = `Outstanding! You delivered a checkmate with ${move.san}. Total tactical precision!`;
-    } else if (tactics.isFork) {
-      title = `Excellent Fork with your ${tactics.isFork.piece}!`;
-      explanation = `Sharp tactical vision! You placed your ${tactics.isFork.piece} on ${move.to}, forking ${tactics.isFork.targets.join(' and ')}.`;
-      quality = 'best';
-    } else if (tactics.materialCaptured && tactics.materialCaptured.value >= 3) {
-      title = `Great Capture: Won my ${tactics.materialCaptured.piece}!`;
-      explanation = `Decisive move. By capturing my ${tactics.materialCaptured.piece.toLowerCase()} on ${move.to}, you tip the material balance in your favor.`;
-      quality = 'best';
+      explanation = `Outstanding tactical vision! You delivered checkmate with ${move.san}. Game over!`;
     } else if (hanging) {
       title = `Blunder: Left your ${hanging.piece} hanging!`;
-      explanation = `Careful! Your ${hanging.piece} on ${hanging.square} is completely undefended. On my turn, I can simply take it for free.`;
-      threatExplanation = `Look at ${hanging.square} — undefended pieces are the #1 cause of lost chess games.`;
+      explanation = `You played ${move.san}, but this leaves your ${hanging.piece} on ${hanging.square} undefended. The opponent can simply capture it for free.`;
+      threatExplanation = `Watch out for unprotected pieces on ${hanging.square}. Always verify piece defense before committing.`;
       arrows.push({
         from: hanging.square,
         to: hanging.square,
         color: '#ef4444'
       });
     } else if (quality === 'blunder') {
-      title = `Blunder: Big tactical drop`;
-      explanation = `This move allows a strong counter-strike. In this position, ${move.san} compromises your piece coordination or loses key material.`;
-      if (bestAlternativeBeforeMove) {
-        threatExplanation = `A much stronger continuation was ${bestAlternativeBeforeMove.bestMove.san}, which keeps your position active and secure.`;
-      }
+      title = `Blunder: Big tactical drop with ${move.san}`;
+      explanation = `You played ${move.san}, which allows a damaging tactical counter-strike and loses significant control.`;
     } else if (quality === 'mistake') {
-      title = `Mistake: Gives away the initiative`;
-      explanation = `${move.san} gives me an easy plan to pressure your weaknesses. Keep an eye on piece defense and king safety.`;
-      if (bestAlternativeBeforeMove) {
-        threatExplanation = `Consider ${bestAlternativeBeforeMove.bestMove.san} next time to maintain the initiative.`;
-      }
+      title = `Mistake: ${move.san} concedes the initiative`;
+      explanation = `You played ${move.san}. While logical, it allows the opponent an easy plan to pressure your weaknesses.`;
     } else if (quality === 'inaccuracy') {
-      title = `Inaccuracy: A bit passive`;
-      explanation = `${move.san} is playable, but there were more active choices available that put more pressure on the board.`;
-    } else if (tactics.castled) {
-      title = `Great Move: King tucked away safely!`;
-      explanation = `Excellent choice! Castling safeguards your King and connects your Rooks for central play.`;
-    } else if (tactics.pieceDeveloped) {
-      title = `Solid Development: ${tactics.pieceDeveloped.piece} activated`;
-      explanation = `Natural and sound. Getting your ${tactics.pieceDeveloped.piece.toLowerCase()} into the game on ${move.to} follows classical opening principles.`;
-    } else if (tactics.centerControlGained) {
-      title = `Strong Move: Center Control`;
-      explanation = `Good pawn play! Fighting for central influence with ${move.san} expands your space and limits my pieces.`;
+      title = `Inaccuracy: ${move.san} is a bit passive`;
+      explanation = `You played ${move.san}. It keeps the game going, but there were significantly more active and ambitious choices available.`;
     } else {
-      title = `${capitalize(quality)} Move: ${move.san}`;
-      explanation = `A solid, purposeful move that maintains your position.`;
+      title = `Solid Move: ${move.san}`;
+      explanation = `You played ${move.san}, developing your pieces and maintaining a steady position.`;
     }
 
+    // Better alternative backward-compatible object
     let betterAlternative = undefined;
-    if (bestAlternativeBeforeMove && (quality === 'inaccuracy' || quality === 'mistake' || quality === 'blunder')) {
+    if (candidateOptions.length > 0) {
       betterAlternative = {
-        san: bestAlternativeBeforeMove.bestMove.san,
-        from: bestAlternativeBeforeMove.bestMove.from,
-        to: bestAlternativeBeforeMove.bestMove.to,
-        reason: `The engine prefers ${bestAlternativeBeforeMove.bestMove.san} for superior piece activity and defense.`
+        san: candidateOptions[0].san,
+        from: candidateOptions[0].from,
+        to: candidateOptions[0].to,
+        reason: candidateOptions[0].reason
       };
     }
 
@@ -215,6 +260,7 @@ export class CoachNarrator {
       explanation,
       threatExplanation,
       betterAlternative,
+      candidateOptions,
       arrows,
       timestamp: Date.now()
     };

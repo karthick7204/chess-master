@@ -114,11 +114,61 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
               <div className="relative bg-white text-zinc-900 rounded-2xl p-3 shadow-md text-xs leading-relaxed font-medium">
                 <div className="absolute top-3 -left-1.5 w-3 h-3 bg-white transform rotate-45" />
                 <p>
-                  <span className="font-bold text-zinc-950 block mb-0.5">{latestPlayerCritique.title}:</span>
+                  <span className="font-bold text-zinc-950 block mb-0.5">{latestPlayerCritique.title}</span>
                   {latestPlayerCritique.explanation}
                 </p>
+
+                {/* Better Candidate Options Section with Color Badges matching Arrows */}
+                {latestPlayerCritique.candidateOptions && latestPlayerCritique.candidateOptions.length > 0 && (
+                  <div className="mt-2.5 pt-2 border-t border-zinc-200/80 space-y-2">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-600 flex items-center justify-between">
+                      <span>{latestPlayerCritique.quality === 'best' ? 'Other Strong Continuations:' : 'Stronger Alternatives on Board:'}</span>
+                      <span className="text-[9px] text-zinc-400 font-normal">Check arrows ↗</span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {latestPlayerCritique.candidateOptions.map((opt, i) => (
+                        <div
+                          key={i}
+                          className="flex items-start gap-2 p-1.5 rounded-lg bg-zinc-50 border border-zinc-200/60"
+                        >
+                          <span
+                            className="inline-block w-3 h-3 rounded-full shrink-0 mt-0.5 shadow-sm"
+                            style={{ backgroundColor: opt.arrowColor }}
+                            title={`Arrow color on board: ${opt.arrowColor}`}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-zinc-950 font-mono text-xs">
+                                {opt.san}
+                              </span>
+                              <span
+                                className={`text-[9px] px-1.5 py-0.2 rounded font-semibold uppercase ${
+                                  opt.badge === 'best'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-sky-100 text-sky-800'
+                                }`}
+                              >
+                                {opt.badge === 'best' ? 'Best Move' : 'Alternative'}
+                              </span>
+                              {opt.scoreDisplay && (
+                                <span className="text-[10px] text-zinc-400 ml-auto font-mono">
+                                  {opt.scoreDisplay}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-zinc-600 leading-normal mt-0.5">
+                              {opt.reason}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {latestPlayerCritique.threatExplanation && (
-                  <p className="mt-1.5 text-red-600 font-semibold text-[11px]">
+                  <p className="mt-2 text-red-600 font-semibold text-[11px]">
                     ⚠️ {latestPlayerCritique.threatExplanation}
                   </p>
                 )}

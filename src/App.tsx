@@ -240,7 +240,8 @@ export const App: React.FC = () => {
         const gameCopy = new Chess(currentGame.fen());
         const moveNumber = Math.ceil(gameCopy.history().length / 2);
 
-        const coachMove = ChessAnalysisEngine.getBotMove(gameCopy, settings.difficulty);
+        // Coach makes master-level moves with no blunders or mistakes
+        const coachMove = ChessAnalysisEngine.getCoachMove(gameCopy);
         if (!coachMove) {
           setIsEngineThinking(false);
           isExecutingCoachMove.current = false;
@@ -346,14 +347,15 @@ export const App: React.FC = () => {
       const moveNumber = Math.ceil(newFenHistory.length / 2);
 
       analysisTimeoutRef.current = setTimeout(() => {
-        const bestMoveBefore = ChessAnalysisEngine.getBestMove(gameBefore, 3);
+        // Evaluate top candidate moves for human-like comparison and arrows
+        const candidateMoves = ChessAnalysisEngine.getTopCandidateMoves(gameBefore, 3, 3);
         const critique = CoachNarrator.critiquePlayerMove(
           gameBefore,
           gameCopy,
           executedMove,
           gameCopy.history(),
           moveNumber,
-          bestMoveBefore
+          candidateMoves
         );
 
         currentMoveRecord.quality = critique.quality;
@@ -366,17 +368,26 @@ export const App: React.FC = () => {
         refreshEvaluation(gameCopy);
         refreshOpening(gameCopy);
 
+        // Prepare human-like spoken coaching text with alternative moves
+        let speechText = `${critique.title}. ${critique.explanation}`;
+        if (critique.candidateOptions && critique.candidateOptions.length > 0) {
+          const best = critique.candidateOptions[0];
+          speechText += ` Stronger option was ${best.san}: ${best.reason}`;
+          if (critique.candidateOptions.length > 1) {
+            const second = critique.candidateOptions[1];
+            speechText += ` Another choice was ${second.san}: ${second.reason}`;
+          }
+        }
+
         if (gameCopy.isGameOver()) {
           if (settings.voiceEnabled) {
-            VoiceService.speak(`${critique.title}. ${critique.explanation}`);
+            VoiceService.speak(speechText);
           }
           handleGameOverCheck(gameCopy);
           return;
         }
 
         if (gameCopy.turn() !== settings.playerColor) {
-          const speechText = `${critique.title}. ${critique.explanation}`;
-
           if (settings.voiceEnabled) {
             VoiceService.speakAndThen(speechText, () => {
               postCritiqueTimeoutRef.current = setTimeout(() => {

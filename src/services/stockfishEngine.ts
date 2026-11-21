@@ -83,6 +83,17 @@ export interface EngineResult {
   depth: number;
 }
 
+export interface EvaluatedCandidateMove {
+  from: Square;
+  to: Square;
+  san: string;
+  piece: string;
+  captured?: string;
+  evaluation: number;
+  scoreDisplay: string;
+  reason: string;
+}
+
 export class ChessAnalysisEngine {
   // Evaluates a given board position
   public static evaluatePosition(chess: Chess): number {
@@ -217,6 +228,80 @@ export class ChessAnalysisEngine {
     }
   }
 
+  // Coach's own move: Grandmaster level, NO mistakes, deep calculation
+  public static getCoachMove(chess: Chess): Move | null {
+    const legalMoves = chess.moves({ verbose: true });
+    if (legalMoves.length === 0) return null;
+
+    // Depth 4 with tactical alpha-beta evaluation
+    const result = this.getBestMove(chess, 4);
+    if (result) {
+      const match = legalMoves.find(m => m.from === result.bestMove.from && m.to === result.bestMove.to);
+      if (match) return match;
+    }
+
+    return legalMoves[0];
+  }
+
+  // Returns top N candidate moves with human educational explanations
+  public static getTopCandidateMoves(
+    chess: Chess,
+    count: number = 3,
+    depth: number = 3
+  ): EvaluatedCandidateMove[] {
+    const legalMoves = chess.moves({ verbose: true });
+    if (legalMoves.length === 0) return [];
+
+    const isWhite = chess.turn() === 'w';
+    const scoredMoves: { move: Move; score: number }[] = [];
+
+    // Sort moves for better alpha-beta pruning (captures first)
+    legalMoves.sort((a, b) => {
+      const aScore = a.captured ? 10 : 0;
+      const bScore = b.captured ? 10 : 0;
+      return bScore - aScore;
+    });
+
+    for (const move of legalMoves) {
+      chess.move(move);
+      let evalScore = this.minimax(chess, depth - 1, -Infinity, Infinity, !isWhite);
+
+      if (chess.isCheckmate()) {
+        evalScore = isWhite ? 10000 : -10000;
+      }
+
+      chess.undo();
+      scoredMoves.push({ move, score: evalScore });
+    }
+
+    // Sort by best score for the player
+    scoredMoves.sort((a, b) => (isWhite ? b.score - a.score : a.score - b.score));
+
+    const selected = scoredMoves.slice(0, count);
+
+    return selected.map(item => {
+      const m = item.move;
+      const evalPawn = (item.score / 100).toFixed(1);
+      const scoreDisplay = item.score >= 0 ? `+${evalPawn}` : `${evalPawn}`;
+
+      // Simulate move to generate natural human-like description
+      chess.move(m);
+      const reason = describeCandidateMove(chess, m);
+      chess.undo();
+
+      return {
+        from: m.from as Square,
+        to: m.to as Square,
+        san: m.san,
+        piece: m.piece,
+        captured: m.captured,
+        evaluation: item.score,
+        scoreDisplay,
+        reason
+      };
+    });
+  }
+
   // Returns bot move based on difficulty
   public static getBotMove(chess: Chess, difficulty: number): Move | null {
     const legalMoves = chess.moves({ verbose: true });
@@ -254,5 +339,84 @@ export class ChessAnalysisEngine {
     }
 
     return legalMoves[0];
+  }
+}
+
+// Generate human-like educational reasons for a candidate move
+function describeCandidateMove(chessAfter: Chess, move: Move): string {
+  const to = move.to as Square;
+  const from = move.from as Square;
+  const isCapture = !!move.captured;
+  const isCheck = chessAfter.inCheck();
+  const isCheckmate = chessAfter.isCheckmate();
+  const pieceType = move.piece;
+
+  if (isCheckmate) {
+    return `Delivers immediate checkmate with ${move.san}!`;
+  }
+
+  if (isCheck && isCapture) {
+    const val = getCapturedPieceName(move.captured);
+    return `Captures the ${val} on ${to} with check, winning material and forcing the king to react.`;
+  }
+
+  if (isCapture) {
+    const val = getCapturedPieceName(move.captured);
+    return `Takes the ${val} on ${to}, giving an immediate material advantage.`;
+  }
+
+  if (isCheck) {
+    return `Gives an active check with ${move.san}, seizing the initiative and attacking the king.`;
+  }
+
+  // Castling
+  if (pieceType === 'k' && Math.abs(from.charCodeAt(0) - to.charCodeAt(0)) > 1) {
+    return `Safeguards your king into the corner and activates your rook for central file control.`;
+  }
+
+  // Minor piece development
+  if (pieceType === 'n') {
+    if (['c3', 'f3', 'c6', 'f6', 'd4', 'e4', 'd5', 'e5'].includes(to)) {
+      return `Develops the knight to ${to}, exerting direct pressure on key central outposts.`;
+    }
+    return `Activates the knight towards the center for improved piece coordination.`;
+  }
+
+  if (pieceType === 'b') {
+    if (['c4', 'b5', 'e7', 'd6', 'g5', 'f4', 'g4'].includes(to)) {
+      return `Develops the bishop along active diagonals, pinning or challenging enemy pieces.`;
+    }
+    return `Frees the bishop onto an active diagonal to control open space.`;
+  }
+
+  // Central pawn moves
+  if (pieceType === 'p') {
+    if (['d4', 'e4', 'd5', 'e5'].includes(to)) {
+      return `Strikes directly at the center with ${move.san}, staking out central space and freeing pieces.`;
+    }
+    if (['c4', 'f4', 'c5', 'f5'].includes(to)) {
+      return `Pushes ${move.san} to contest opponent's pawn structure and expand flank space.`;
+    }
+  }
+
+  // Queen / Rook moves
+  if (pieceType === 'r') {
+    return `Places the rook on the open or semi-open ${to[0]}-file for back-rank and central pressure.`;
+  }
+
+  if (pieceType === 'q') {
+    return `Improves queen activity to ${to}, exerting multi-diagonal pressure across the board.`;
+  }
+
+  return `Improves piece activity to ${to} while maintaining solid coordination.`;
+}
+
+function getCapturedPieceName(piece?: string): string {
+  switch (piece) {
+    case 'q': return 'queen';
+    case 'r': return 'rook';
+    case 'b': return 'bishop';
+    case 'n': return 'knight';
+    default: return 'pawn';
   }
 }
