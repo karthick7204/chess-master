@@ -11,6 +11,8 @@ interface GameOverModalProps {
   opponentName?: string;
   isVsMode?: boolean;
   onPlayAgain: () => void;
+  onOpenDrills?: () => void;
+  diagnosticFocus?: string;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
@@ -20,7 +22,9 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   commentaries = [],
   opponentName = 'Computer',
   isVsMode = false,
-  onPlayAgain
+  onPlayAgain,
+  onOpenDrills,
+  diagnosticFocus = 'Piece Safety'
 }) => {
   useEffect(() => {
     if (isOpen && winner === 'player') {
@@ -82,6 +86,26 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
               <span className="block font-bold text-red-400 text-sm">{blunderCount}</span>
               <span className="text-[10px] text-slate-400">Blunders</span>
             </div>
+          </div>
+        )}
+
+        {/* Adaptive Coach Diagnosis & Practice Button */}
+        {!isVsMode && onOpenDrills && (
+          <div className="mb-4 p-3 rounded-xl bg-slate-950/80 border border-amber-500/30 text-left text-xs">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1 flex items-center gap-1">
+              <span>🎯</span>
+              <span>AI Coach Game Diagnosis</span>
+            </div>
+            <p className="text-slate-300 leading-snug mb-2.5">
+              Based on this match, focus on <strong className="text-white">{diagnosticFocus}</strong>. Practice targeted exercises to cement this technique.
+            </p>
+            <button
+              onClick={onOpenDrills}
+              className="w-full py-2 px-3 rounded-lg text-xs font-bold bg-[#81b64c] hover:bg-[#73a343] text-white flex items-center justify-center gap-1.5 transition shadow"
+            >
+              <span>Practice Recommended Drill</span>
+              <span>↗</span>
+            </button>
           </div>
         )}
 

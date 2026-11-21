@@ -1,5 +1,5 @@
 import React from 'react';
-import { CoachCommentary, CoachPersonality, OpeningInfo } from '../../types/chess';
+import { CoachCommentary, CoachPersonality, OpeningInfo, MoveQuality } from '../../types/chess';
 import { Volume2, VolumeX, Flag, Lightbulb, Undo2, Share2, Download, Settings, BookOpen, Info } from 'lucide-react';
 
 interface CoachPanelProps {
@@ -15,7 +15,50 @@ interface CoachPanelProps {
   canTakeBack: boolean;
   viewingIndex: number;
   onSelectMoveIndex: (index: number) => void;
+  onOpenDrills?: () => void;
+  learningFocusTitle?: string;
 }
+
+const renderQualityBadge = (quality?: MoveQuality) => {
+  if (!quality || quality === 'good') return null;
+  let bg = '';
+  let text = '';
+  switch (quality) {
+    case 'book':
+      bg = 'bg-blue-600 text-white';
+      text = '📖';
+      break;
+    case 'best':
+      bg = 'bg-[#81b64c] text-white';
+      text = '★';
+      break;
+    case 'excellent':
+      bg = 'bg-[#5c8bb0] text-white';
+      text = '!';
+      break;
+    case 'inaccuracy':
+      bg = 'bg-[#f7c044] text-zinc-950';
+      text = '?!';
+      break;
+    case 'mistake':
+      bg = 'bg-[#e58f2a] text-white';
+      text = '?';
+      break;
+    case 'blunder':
+      bg = 'bg-[#ca3431] text-white';
+      text = '??';
+      break;
+    default:
+      return null;
+  }
+  return (
+    <span
+      className={`inline-flex items-center justify-center text-[9px] font-black px-1 py-0.5 rounded leading-none ml-1.5 shadow-xs ${bg}`}
+    >
+      {text}
+    </span>
+  );
+};
 
 export const CoachPanel: React.FC<CoachPanelProps> = ({
   personality,
@@ -29,7 +72,9 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
   onOpenSettings,
   canTakeBack,
   viewingIndex,
-  onSelectMoveIndex
+  onSelectMoveIndex,
+  onOpenDrills,
+  learningFocusTitle = 'Piece Safety'
 }) => {
   // Extract latest Coach move speech and latest Player move critique
   let latestCoachComment: CoachCommentary | null = null;
@@ -47,7 +92,16 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
   }
 
   // Group moves into pairs (1. d4 e6 ...) for the move notation table
-  const movePairs: { moveNum: number; whiteIndex: number; whiteSan?: string; blackIndex?: number; blackSan?: string }[] = [];
+  const movePairs: {
+    moveNum: number;
+    whiteIndex: number;
+    whiteSan?: string;
+    whiteQuality?: MoveQuality;
+    blackIndex?: number;
+    blackSan?: string;
+    blackQuality?: MoveQuality;
+  }[] = [];
+
   for (let i = 0; i < commentaries.length; i++) {
     const c = commentaries[i];
     const turnNum = c.moveNumber;
@@ -59,9 +113,11 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
     if (c.playerColor === 'w') {
       pair.whiteIndex = i + 1; // FEN index
       pair.whiteSan = c.san;
+      pair.whiteQuality = c.quality;
     } else {
       pair.blackIndex = i + 1; // FEN index
       pair.blackSan = c.san;
+      pair.blackQuality = c.quality;
     }
   }
 
@@ -83,7 +139,26 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4">
+      <div className="flex-1 flex flex-col p-4 overflow-y-auto space-y-3.5">
+        {/* Adaptive Coach Recommendation Banner */}
+        {onOpenDrills && (
+          <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#282723] border border-[#383631] text-[11px] shadow-sm">
+            <div className="flex items-center gap-1.5 text-zinc-300 min-w-0">
+              <span className="text-amber-400 shrink-0">💡</span>
+              <span className="truncate">
+                Focus: <strong className="text-white font-semibold">{learningFocusTitle}</strong>
+              </span>
+            </div>
+            <button
+              onClick={onOpenDrills}
+              className="text-[#81b64c] hover:text-[#9cd363] font-bold text-xs shrink-0 ml-2 transition flex items-center gap-0.5"
+            >
+              <span>Practice Drills</span>
+              <span>↗</span>
+            </button>
+          </div>
+        )}
+
         {/* Coach Speech Section (Matching Screenshot) */}
         <div className="flex items-start gap-3">
           {/* Coach Avatar */}
@@ -242,29 +317,31 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
                     {/* White Move */}
                     <button
                       onClick={() => onSelectMoveIndex(p.whiteIndex)}
-                      className={`col-span-3 text-left px-1 rounded transition ${
+                      className={`col-span-3 text-left px-1.5 py-0.5 rounded transition flex items-center justify-between ${
                         viewingIndex === p.whiteIndex
                           ? 'bg-[#3d3a36] text-amber-300 font-bold'
                           : 'text-zinc-200 hover:text-white'
                       }`}
                     >
-                      {p.whiteSan || ''}
+                      <span className="truncate">{p.whiteSan || ''}</span>
+                      {renderQualityBadge(p.whiteQuality)}
                     </button>
 
                     {/* Black Move */}
                     {p.blackSan ? (
                       <button
                         onClick={() => onSelectMoveIndex(p.blackIndex!)}
-                        className={`col-span-3 text-left px-1 rounded transition ${
+                        className={`col-span-3 text-left px-1.5 py-0.5 rounded transition flex items-center justify-between ${
                           viewingIndex === p.blackIndex
                             ? 'bg-[#3d3a36] text-amber-300 font-bold'
                             : 'text-zinc-200 hover:text-white'
                         }`}
                       >
-                        {p.blackSan}
+                        <span className="truncate">{p.blackSan}</span>
+                        {renderQualityBadge(p.blackQuality)}
                       </button>
                     ) : (
-                      <span className="col-span-3 text-zinc-600">...</span>
+                      <span className="col-span-3 text-zinc-600 px-1.5">...</span>
                     )}
                   </div>
                 ))}

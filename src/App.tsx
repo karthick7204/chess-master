@@ -6,6 +6,8 @@ import { CoachPanel } from './components/Coach/CoachPanel';
 import { VsComputerPanel } from './components/VsComputer/VsComputerPanel';
 import { SettingsModal } from './components/Modals/SettingsModal';
 import { GameOverModal } from './components/Modals/GameOverModal';
+import { AdaptiveDrillsModal } from './components/Modals/AdaptiveDrillsModal';
+import { AdaptiveCoachService } from './services/adaptiveCoachService';
 import {
   CoachCommentary,
   BoardArrow,
@@ -30,7 +32,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   GraduationCap,
-  Bot
+  Bot,
+  Target
 } from 'lucide-react';
 
 interface StoredMove {
@@ -67,8 +70,13 @@ export const App: React.FC = () => {
   const [currentOpening, setCurrentOpening] = useState<OpeningInfo | null>(null);
 
   const [viewingIndex, setViewingIndex] = useState<number>(0);
+  const [movesRecord, setMovesRecord] = useState<StoredMove[]>([]);
   const fenHistoryRef = useRef<string[]>([new Chess().fen()]);
   const movesRecordRef = useRef<StoredMove[]>([]);
+
+  // Adaptive Coach Weakness Tracking and Practice Modal State
+  const [isDrillsModalOpen, setIsDrillsModalOpen] = useState(false);
+  const [primaryWeakness, setPrimaryWeakness] = useState(AdaptiveCoachService.getPrimaryWeakness());
 
   const coachTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const analysisTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -95,9 +103,9 @@ export const App: React.FC = () => {
   }, [game, isLivePosition, viewingIndex]);
 
   const currentLastMove = useMemo(() => {
-    if (viewingIndex === 0 || movesRecordRef.current.length === 0) return null;
-    return movesRecordRef.current[viewingIndex - 1] || null;
-  }, [viewingIndex]);
+    if (viewingIndex === 0 || movesRecord.length === 0) return null;
+    return movesRecord[viewingIndex - 1] || null;
+  }, [viewingIndex, movesRecord]);
 
   // ==========================================
   // VS COMPUTER MODE STATE (Without Instructions)
@@ -276,6 +284,7 @@ export const App: React.FC = () => {
             to: executedMove.to as Square,
             san: executedMove.san
           });
+          setMovesRecord([...movesRecordRef.current]);
 
           setViewingIndex(fenHistoryRef.current.length - 1);
           setCommentaries(prev => [...prev, coachCommentary]);
@@ -339,6 +348,7 @@ export const App: React.FC = () => {
         san: executedMove.san
       };
       movesRecordRef.current = [...truncatedMoves, currentMoveRecord];
+      setMovesRecord([...movesRecordRef.current]);
       setCommentaries(truncatedCommentaries);
 
       setGame(gameCopy);
@@ -359,7 +369,19 @@ export const App: React.FC = () => {
         );
 
         currentMoveRecord.quality = critique.quality;
+        setMovesRecord([...movesRecordRef.current]);
         setCommentaries(prev => [...prev, critique]);
+
+        // Adaptive Coach Weakness Tracking
+        AdaptiveCoachService.trackMove(
+          gameBefore,
+          gameCopy,
+          executedMove,
+          critique.quality || 'good',
+          moveNumber,
+          !!critique.mistakeBreakdown
+        );
+        setPrimaryWeakness(AdaptiveCoachService.getPrimaryWeakness());
 
         if (settings.showArrows && critique.arrows) {
           setArrows(critique.arrows);
@@ -421,6 +443,7 @@ export const App: React.FC = () => {
     }
 
     if (winner) {
+      AdaptiveCoachService.recordGameFinished();
       setGameOver({ isOpen: true, winner, reason });
     }
   };
@@ -447,6 +470,7 @@ export const App: React.FC = () => {
 
     fenHistoryRef.current = newFenHistory;
     movesRecordRef.current = newMovesRecord;
+    setMovesRecord([...newMovesRecord]);
     setCommentaries(newCommentaries);
 
     const revertedGame = new Chess(newFenHistory[targetIdx]);
@@ -494,6 +518,7 @@ export const App: React.FC = () => {
     const newChess = new Chess();
     fenHistoryRef.current = [newChess.fen()];
     movesRecordRef.current = [];
+    setMovesRecord([]);
     setViewingIndex(0);
     setGame(newChess);
     setCommentaries([]);
@@ -789,6 +814,18 @@ export const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsDrillsModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#262522] hover:bg-[#312e2b] text-amber-400 border border-amber-500/30 transition shadow-sm"
+            title="Practice targeted exercises based on your game weaknesses"
+          >
+            <Target className="w-3.5 h-3.5 text-amber-400" />
+            <span>Practice Drills</span>
+            <span className="text-[10px] bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded-full font-bold">
+              {primaryWeakness.title}
+            </span>
+          </button>
+
           <button
             onClick={() => (activeTab === 'coach' ? startNewGame() : startNewVsGame())}
             className="px-3 py-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-xs font-semibold text-zinc-300 transition"
@@ -1093,6 +1130,8 @@ export const App: React.FC = () => {
               canTakeBack={fenHistoryRef.current.length > 1}
               viewingIndex={viewingIndex}
               onSelectMoveIndex={idx => setViewingIndex(idx)}
+              onOpenDrills={() => setIsDrillsModalOpen(true)}
+              learningFocusTitle={primaryWeakness.title}
             />
           ) : (
             <VsComputerPanel
@@ -1145,6 +1184,15 @@ export const App: React.FC = () => {
         opponentName={activeTab === 'coach' ? currentPersonality.name : vsBot.name}
         isVsMode={activeTab === 'vs-computer'}
         onPlayAgain={() => (activeTab === 'coach' ? startNewGame() : startNewVsGame())}
+        onOpenDrills={() => setIsDrillsModalOpen(true)}
+        diagnosticFocus={primaryWeakness.title}
+      />
+
+      {/* Adaptive Drills & Concept Lessons Modal */}
+      <AdaptiveDrillsModal
+        isOpen={isDrillsModalOpen}
+        onClose={() => setIsDrillsModalOpen(false)}
+        initialCategory={primaryWeakness.category}
       />
     </div>
   );
