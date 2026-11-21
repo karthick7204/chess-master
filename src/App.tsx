@@ -389,16 +389,12 @@ export const App: React.FC = () => {
 
         if (gameCopy.turn() !== settings.playerColor) {
           if (settings.voiceEnabled) {
-            VoiceService.speakAndThen(speechText, () => {
-              postCritiqueTimeoutRef.current = setTimeout(() => {
-                triggerCoachMove(gameCopy);
-              }, 300);
-            });
-          } else {
-            postCritiqueTimeoutRef.current = setTimeout(() => {
-              triggerCoachMove(gameCopy);
-            }, 600);
+            VoiceService.speak(speechText);
           }
+          // Fast, natural GM response time (400ms) without waiting for audio speech to finish
+          postCritiqueTimeoutRef.current = setTimeout(() => {
+            triggerCoachMove(gameCopy);
+          }, 400);
         }
       }, 16);
 

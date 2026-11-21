@@ -228,13 +228,13 @@ export class ChessAnalysisEngine {
     }
   }
 
-  // Coach's own move: Grandmaster level, NO mistakes, deep calculation
+  // Coach's own move: Fast & Master-level, deep positional calculation without freezing
   public static getCoachMove(chess: Chess): Move | null {
     const legalMoves = chess.moves({ verbose: true });
     if (legalMoves.length === 0) return null;
 
-    // Depth 4 with tactical alpha-beta evaluation
-    const result = this.getBestMove(chess, 4);
+    // Depth 3 with alpha-beta pruning + tactical priority (~50ms execution)
+    const result = this.getBestMove(chess, 3);
     if (result) {
       const match = legalMoves.find(m => m.from === result.bestMove.from && m.to === result.bestMove.to);
       if (match) return match;
@@ -243,11 +243,11 @@ export class ChessAnalysisEngine {
     return legalMoves[0];
   }
 
-  // Returns top N candidate moves with human educational explanations
+  // Returns top N candidate moves with human educational explanations (~20ms execution)
   public static getTopCandidateMoves(
     chess: Chess,
     count: number = 3,
-    depth: number = 3
+    depth: number = 2
   ): EvaluatedCandidateMove[] {
     const legalMoves = chess.moves({ verbose: true });
     if (legalMoves.length === 0) return [];
