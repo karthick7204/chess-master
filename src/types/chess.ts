@@ -32,6 +32,14 @@ export interface CandidateOption {
   scoreDisplay?: string;
 }
 
+export interface MistakeBreakdown {
+  playedMove: string;        // e.g. "Knight to a4 (Na4)"
+  bestMove: string;          // e.g. "Bishop to c4 (Bc4)"
+  whyBad: string;            // e.g. "Your knight is moving away from the centre without a clear purpose. You are also leaving your central pawn undefended."
+  opponentResponse: string;  // e.g. "In response, opponent can strike the center with d5 or take your hanging pawn."
+  howToAvoid: string;        // e.g. "Keep minor pieces focused on controlling central squares and verify pawn defenses before moving."
+}
+
 export interface CoachCommentary {
   id: string;
   speaker: 'coach' | 'system';
@@ -51,6 +59,7 @@ export interface CoachCommentary {
     reason: string;
   };
   candidateOptions?: CandidateOption[];
+  mistakeBreakdown?: MistakeBreakdown;
   arrows?: BoardArrow[];
   timestamp: number;
 }

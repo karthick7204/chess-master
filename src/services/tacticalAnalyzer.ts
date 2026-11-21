@@ -100,7 +100,7 @@ export function analyzeMoveTactics(
 }
 
 // Check if a piece from square 'from' can attack square 'to' in the current position
-function canAttack(chess: Chess, from: Square, to: Square): boolean {
+export function canAttack(chess: Chess, from: Square, to: Square): boolean {
   const moves = chess.moves({ square: from, verbose: true });
   return moves.some(m => m.to === to);
 }
@@ -199,7 +199,7 @@ export function getPieceName(symbol: PieceSymbol): string {
   }
 }
 
-function getBoardSquares(): Square[] {
+export function getBoardSquares(): Square[] {
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   const ranks = ['1', '2', '3', '4', '5', '6', '7', '8'];
   const squares: Square[] = [];

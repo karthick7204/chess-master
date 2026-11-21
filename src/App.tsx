@@ -368,15 +368,10 @@ export const App: React.FC = () => {
         refreshEvaluation(gameCopy);
         refreshOpening(gameCopy);
 
-        // Prepare human-like spoken coaching text with alternative moves
-        let speechText = `${critique.title}. ${critique.explanation}`;
-        if (critique.candidateOptions && critique.candidateOptions.length > 0) {
-          const best = critique.candidateOptions[0];
-          speechText += ` Stronger option was ${best.san}: ${best.reason}`;
-          if (critique.candidateOptions.length > 1) {
-            const second = critique.candidateOptions[1];
-            speechText += ` Another choice was ${second.san}: ${second.reason}`;
-          }
+        // Prepare human-like spoken coaching text matching Chess.com coach advice
+        let speechText = critique.explanation;
+        if (critique.quality === 'best' || critique.quality === 'excellent' || critique.quality === 'good') {
+          speechText = `${critique.title}. ${critique.explanation}`;
         }
 
         if (gameCopy.isGameOver()) {

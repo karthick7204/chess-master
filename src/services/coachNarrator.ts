@@ -1,8 +1,9 @@
 import { Chess, Square, Move } from 'chess.js';
-import { CoachCommentary, MoveQuality, BoardArrow, CandidateOption } from '../types/chess';
+import { CoachCommentary, MoveQuality, BoardArrow, CandidateOption, MistakeBreakdown } from '../types/chess';
 import { findOpeningByMoves } from '../data/openings';
 import { analyzeMoveTactics, findHangingPiece } from './tacticalAnalyzer';
 import { ChessAnalysisEngine, EvaluatedCandidateMove } from './stockfishEngine';
+import { MistakeAnalyzer } from './mistakeAnalyzer';
 
 export class CoachNarrator {
   // Generate coach's commentary when the COACH makes a move (Master GM level)
@@ -195,45 +196,41 @@ export class CoachNarrator {
     let title = "";
     let explanation = "";
     let threatExplanation = "";
+    let mistakeBreakdown: MistakeBreakdown | undefined = undefined;
 
-    // Opening recognition
-    if (opening && sanHistory.length <= opening.moves.length + 1) {
-      if (quality === 'book') {
-        title = `Book Move: ${opening.name}`;
-        explanation = `You played ${move.san}, following standard grandmaster theory in the ${opening.name} (ECO ${opening.eco}).`;
-      } else {
-        title = `${capitalize(quality)} in the ${opening.name}`;
-      }
-    }
+    // Check if the move is an Inaccuracy, Mistake, or Blunder
+    const isMistake = quality === 'inaccuracy' || quality === 'mistake' || quality === 'blunder';
 
-    // Pedagogical commentary comparing move with options
-    if (quality === 'best') {
+    if (isMistake) {
+      const mistakeAnalysis = MistakeAnalyzer.analyzeMistake(
+        gameBefore,
+        gameAfter,
+        move,
+        betterMoves[0],
+        quality,
+        moveNumber
+      );
+      mistakeBreakdown = mistakeAnalysis.breakdown;
+      title =
+        quality === 'blunder'
+          ? `Blunder: ${move.san}`
+          : quality === 'mistake'
+          ? `Mistake: ${move.san}`
+          : `Inaccuracy: ${move.san}`;
+      explanation = mistakeAnalysis.conversationalCoachText;
+      threatExplanation = mistakeAnalysis.breakdown.opponentResponse;
+    } else if (quality === 'best') {
       title = `Best Move! 🌟 ${move.san}`;
       explanation = `You found the most accurate move on the board! Playing ${move.san} keeps your position active and maintains optimal piece harmony.`;
+    } else if (quality === 'excellent') {
+      title = `Excellent Move! 👏 ${move.san}`;
+      explanation = `Very strong move! Playing ${move.san} maintains your positional advantage and keeps up the pressure.`;
     } else if (tactics.isCheckmate) {
       title = `Brilliant Checkmate! 🎉`;
       explanation = `Outstanding tactical vision! You delivered checkmate with ${move.san}. Game over!`;
-    } else if (hanging) {
-      title = `Blunder: Left your ${hanging.piece} hanging!`;
-      explanation = `You played ${move.san}, but this leaves your ${hanging.piece} on ${hanging.square} undefended. The opponent can simply capture it for free.`;
-      threatExplanation = `Watch out for unprotected pieces on ${hanging.square}. Always verify piece defense before committing.`;
-      arrows.push({
-        from: hanging.square,
-        to: hanging.square,
-        color: '#ef4444'
-      });
-    } else if (quality === 'blunder') {
-      title = `Blunder: Big tactical drop with ${move.san}`;
-      explanation = `You played ${move.san}, which allows a damaging tactical counter-strike and loses significant control.`;
-    } else if (quality === 'mistake') {
-      title = `Mistake: ${move.san} concedes the initiative`;
-      explanation = `You played ${move.san}. While logical, it allows the opponent an easy plan to pressure your weaknesses.`;
-    } else if (quality === 'inaccuracy') {
-      title = `Inaccuracy: ${move.san} is a bit passive`;
-      explanation = `You played ${move.san}. It keeps the game going, but there were significantly more active and ambitious choices available.`;
     } else {
-      title = `Solid Move: ${move.san}`;
-      explanation = `You played ${move.san}, developing your pieces and maintaining a steady position.`;
+      title = `Good Move: ${move.san}`;
+      explanation = `Reasonable move. Playing ${move.san} develops your pieces and maintains a solid, playable position.`;
     }
 
     // Better alternative backward-compatible object
@@ -261,13 +258,9 @@ export class CoachNarrator {
       threatExplanation,
       betterAlternative,
       candidateOptions,
+      mistakeBreakdown,
       arrows,
       timestamp: Date.now()
     };
   }
-}
-
-function capitalize(str: string): string {
-  if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1);
 }

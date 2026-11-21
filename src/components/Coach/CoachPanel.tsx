@@ -118,6 +118,41 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
                   {latestPlayerCritique.explanation}
                 </p>
 
+                {/* 5-Point Pedagogical Mistake Breakdown Card */}
+                {latestPlayerCritique.mistakeBreakdown && (
+                  <div className="mt-2.5 pt-2 border-t border-zinc-200/80 space-y-1.5 bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/70 text-zinc-900">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-amber-900 flex items-center justify-between border-b border-amber-200/60 pb-1">
+                      <span>Coach Analysis Breakdown</span>
+                      <span className="text-[9px] bg-amber-200/70 text-amber-950 px-1.5 py-0.2 rounded font-semibold uppercase">
+                        {latestPlayerCritique.quality}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 text-[11px] leading-snug pt-0.5">
+                      <div className="flex items-start gap-1.5">
+                        <span className="font-bold text-zinc-900 shrink-0">Played:</span>
+                        <span className="text-zinc-800">{latestPlayerCritique.mistakeBreakdown.playedMove}</span>
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <span className="font-bold text-emerald-800 shrink-0">Best Move:</span>
+                        <span className="text-emerald-950 font-semibold">{latestPlayerCritique.mistakeBreakdown.bestMove}</span>
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <span className="font-bold text-red-800 shrink-0">Why Bad:</span>
+                        <span className="text-zinc-800">{latestPlayerCritique.mistakeBreakdown.whyBad}</span>
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <span className="font-bold text-amber-900 shrink-0">Opponent Response:</span>
+                        <span className="text-zinc-800">{latestPlayerCritique.mistakeBreakdown.opponentResponse}</span>
+                      </div>
+                      <div className="flex items-start gap-1.5 pt-1 border-t border-amber-200/40">
+                        <span className="font-bold text-blue-900 shrink-0">How to Avoid:</span>
+                        <span className="text-zinc-800">{latestPlayerCritique.mistakeBreakdown.howToAvoid}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Better Candidate Options Section with Color Badges matching Arrows */}
                 {latestPlayerCritique.candidateOptions && latestPlayerCritique.candidateOptions.length > 0 && (
                   <div className="mt-2.5 pt-2 border-t border-zinc-200/80 space-y-2">
