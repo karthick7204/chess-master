@@ -7,7 +7,10 @@ import { VsComputerPanel } from './components/VsComputer/VsComputerPanel';
 import { SettingsModal } from './components/Modals/SettingsModal';
 import { GameOverModal } from './components/Modals/GameOverModal';
 import { AdaptiveDrillsModal } from './components/Modals/AdaptiveDrillsModal';
+import { CoachMasterclassModal } from './components/Modals/CoachMasterclassModal';
 import { AdaptiveCoachService } from './services/adaptiveCoachService';
+import { detectGamePhase } from './services/tacticalAnalyzer';
+import { CoachPhase } from './types/learning';
 import {
   CoachCommentary,
   BoardArrow,
@@ -78,6 +81,10 @@ export const App: React.FC = () => {
   const [isDrillsModalOpen, setIsDrillsModalOpen] = useState(false);
   const [primaryWeakness, setPrimaryWeakness] = useState(AdaptiveCoachService.getPrimaryWeakness());
 
+  // Coach Masterclass Modal State (Opening, Middlegame, Endgame)
+  const [isMasterclassOpen, setIsMasterclassOpen] = useState(false);
+  const [masterclassPhase, setMasterclassPhase] = useState<CoachPhase>('opening');
+
   const coachTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const analysisTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postCritiqueTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -101,6 +108,10 @@ export const App: React.FC = () => {
       return game;
     }
   }, [game, isLivePosition, viewingIndex]);
+
+  const currentPhase = useMemo<CoachPhase>(() => {
+    return detectGamePhase(displayGame, Math.ceil(viewingIndex / 2) || 1);
+  }, [displayGame, viewingIndex]);
 
   const currentLastMove = useMemo(() => {
     if (viewingIndex === 0 || movesRecord.length === 0) return null;
@@ -813,7 +824,23 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {/* 3-Phase Coach Masterclass Button */}
+          <button
+            onClick={() => {
+              setMasterclassPhase(currentPhase);
+              setIsMasterclassOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#262522] hover:bg-[#312e2b] text-emerald-400 border border-emerald-500/30 transition shadow-sm"
+            title="Open 3-Phase Coach Masterclass: Opening, Middlegame & Endgame Academy"
+          >
+            <span>🎓</span>
+            <span>Coach Academy</span>
+            <span className="text-[10px] bg-emerald-400/20 text-emerald-300 px-1.5 py-0.5 rounded-full font-bold uppercase">
+              {currentPhase}
+            </span>
+          </button>
+
           <button
             onClick={() => setIsDrillsModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#262522] hover:bg-[#312e2b] text-amber-400 border border-amber-500/30 transition shadow-sm"
@@ -1132,6 +1159,11 @@ export const App: React.FC = () => {
               onSelectMoveIndex={idx => setViewingIndex(idx)}
               onOpenDrills={() => setIsDrillsModalOpen(true)}
               learningFocusTitle={primaryWeakness.title}
+              currentPhase={currentPhase}
+              onOpenMasterclass={phase => {
+                if (phase) setMasterclassPhase(phase);
+                setIsMasterclassOpen(true);
+              }}
             />
           ) : (
             <VsComputerPanel
@@ -1193,6 +1225,13 @@ export const App: React.FC = () => {
         isOpen={isDrillsModalOpen}
         onClose={() => setIsDrillsModalOpen(false)}
         initialCategory={primaryWeakness.category}
+      />
+
+      {/* 3-Phase Coach Masterclass Modal (Opening, Middlegame, Endgame) */}
+      <CoachMasterclassModal
+        isOpen={isMasterclassOpen}
+        onClose={() => setIsMasterclassOpen(false)}
+        initialPhase={masterclassPhase}
       />
     </div>
   );

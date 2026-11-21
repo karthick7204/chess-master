@@ -1,7 +1,7 @@
 import { Chess, Square, Move } from 'chess.js';
 import { CoachCommentary, MoveQuality, BoardArrow, CandidateOption, MistakeBreakdown } from '../types/chess';
 import { findOpeningByMoves } from '../data/openings';
-import { analyzeMoveTactics, findHangingPiece } from './tacticalAnalyzer';
+import { analyzeMoveTactics, findHangingPiece, detectGamePhase } from './tacticalAnalyzer';
 import { ChessAnalysisEngine, EvaluatedCandidateMove } from './stockfishEngine';
 import { MistakeAnalyzer } from './mistakeAnalyzer';
 
@@ -16,6 +16,7 @@ export class CoachNarrator {
   ): CoachCommentary {
     const tactics = analyzeMoveTactics(gameBefore, gameAfter, move.from as Square, move.to as Square);
     const opening = findOpeningByMoves(sanHistory);
+    const phase = detectGamePhase(gameBefore, moveNumber);
 
     let title = `Coach Move: ${move.san}`;
     let explanation = "";
@@ -38,13 +39,22 @@ export class CoachNarrator {
       explanation = `By placing my ${tactics.isFork.piece} on ${move.to}, I am attacking multiple targets at the same time: ${tactics.isFork.targets.join(' and ')}.`;
     } else if (tactics.castled) {
       title = `Kingside Castling: Safety & Coordination`;
-      explanation = `I am castling to tuck my King safely behind a solid pawn shield while connecting my Rooks to dominate open central files.`;
+      explanation = `Opening Coach: I am castling to tuck my King safely behind a solid pawn shield while connecting my Rooks to dominate open central files.`;
+    } else if (phase === 'endgame' && move.piece === 'k') {
+      title = `King Activation (Endgame Rule #1)`;
+      explanation = `Endgame Coach: In the endgame, the King transforms into an active attacker! I am centralizing my King to control key squares and escort pawns.`;
+    } else if (phase === 'endgame' && move.piece === 'p') {
+      title = `Pawn Promotion Push`;
+      explanation = `Endgame Coach: Passed pawns must be pushed. Advancing to ${move.to} restricts your king and creates unstoppable queening threats.`;
+    } else if (phase === 'middlegame' && move.piece === 'r' && (move.to.endsWith('7') || move.to.endsWith('2'))) {
+      title = `Rook on the 7th Rank! ("Pigs on the 7th")`;
+      explanation = `Middlegame Coach: Infiltrating the 7th rank with my rook targets your base pawns and restricts your king to the back rank.`;
     } else if (tactics.pieceDeveloped) {
       title = `Developing ${tactics.pieceDeveloped.piece} to ${move.to}`;
-      explanation = `Activating minor pieces toward the center is fundamental. My ${tactics.pieceDeveloped.piece.toLowerCase()} now exerts pressure across key squares.`;
+      explanation = `Opening Coach: Activating minor pieces toward the center is fundamental. My ${tactics.pieceDeveloped.piece.toLowerCase()} now exerts pressure across key squares.`;
     } else if (tactics.centerControlGained) {
       title = `Controlling the Center: ${move.san}`;
-      explanation = `I pushed to ${move.to} to contest the center. Whoever controls central squares dictates the flow of the game.`;
+      explanation = `Opening Coach: I pushed to ${move.to} to contest the center. Whoever controls central squares dictates the flow of the game.`;
     } else {
       title = `Grandmaster Move: ${move.san}`;
       explanation = `I played ${move.san} to optimize my piece placement, restrict your counterplay, and prepare future tactical breaks.`;

@@ -17,6 +17,8 @@ interface CoachPanelProps {
   onSelectMoveIndex: (index: number) => void;
   onOpenDrills?: () => void;
   learningFocusTitle?: string;
+  currentPhase?: 'opening' | 'middlegame' | 'endgame';
+  onOpenMasterclass?: (phase?: 'opening' | 'middlegame' | 'endgame') => void;
 }
 
 const renderQualityBadge = (quality?: MoveQuality) => {
@@ -74,7 +76,9 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
   viewingIndex,
   onSelectMoveIndex,
   onOpenDrills,
-  learningFocusTitle = 'Piece Safety'
+  learningFocusTitle = 'Piece Safety',
+  currentPhase = 'opening',
+  onOpenMasterclass
 }) => {
   // Extract latest Coach move speech and latest Player move critique
   let latestCoachComment: CoachCommentary | null = null;
@@ -139,7 +143,49 @@ export const CoachPanel: React.FC<CoachPanelProps> = ({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col p-4 overflow-y-auto space-y-3.5">
+      <div className="flex-1 flex flex-col p-4 overflow-y-auto space-y-3">
+        {/* Phase Coach Navigation Bar */}
+        <div className="flex items-center gap-1.5 p-1 bg-[#1a1917] rounded-xl border border-[#2d2b27] text-xs">
+          <button
+            onClick={() => onOpenMasterclass?.('opening')}
+            className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 transition ${
+              currentPhase === 'opening'
+                ? 'bg-[#81b64c] text-white shadow-sm ring-1 ring-white/20'
+                : 'text-zinc-400 hover:text-white hover:bg-[#282723]'
+            }`}
+            title="Opening Coach: Principles, Openings & Traps"
+          >
+            <span>♟️</span>
+            <span>Opening</span>
+          </button>
+
+          <button
+            onClick={() => onOpenMasterclass?.('middlegame')}
+            className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 transition ${
+              currentPhase === 'middlegame'
+                ? 'bg-amber-600 text-white shadow-sm ring-1 ring-white/20'
+                : 'text-zinc-400 hover:text-white hover:bg-[#282723]'
+            }`}
+            title="Middlegame Coach: Positional Strategy, Weaknesses & Plans"
+          >
+            <span>⚔️</span>
+            <span>Middlegame</span>
+          </button>
+
+          <button
+            onClick={() => onOpenMasterclass?.('endgame')}
+            className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 transition ${
+              currentPhase === 'endgame'
+                ? 'bg-sky-600 text-white shadow-sm ring-1 ring-white/20'
+                : 'text-zinc-400 hover:text-white hover:bg-[#282723]'
+            }`}
+            title="Endgame Coach: King Activity, Pawns & Opposition"
+          >
+            <span>👑</span>
+            <span>Endgame</span>
+          </button>
+        </div>
+
         {/* Adaptive Coach Recommendation Banner */}
         {onOpenDrills && (
           <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#282723] border border-[#383631] text-[11px] shadow-sm">

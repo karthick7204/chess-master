@@ -210,3 +210,39 @@ export function getBoardSquares(): Square[] {
   }
   return squares;
 }
+
+export function detectGamePhase(game: Chess, moveNumber: number): 'opening' | 'middlegame' | 'endgame' {
+  const board = game.board();
+  let whitePiecesValue = 0;
+  let blackPiecesValue = 0;
+  let whiteQueens = 0;
+  let blackQueens = 0;
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const piece = board[r][c];
+      if (!piece) continue;
+      if (piece.type === 'q') {
+        if (piece.color === 'w') whiteQueens++;
+        else blackQueens++;
+      }
+      if (piece.type !== 'k' && piece.type !== 'p') {
+        const val = PIECE_VALUES[piece.type] || 0;
+        if (piece.color === 'w') whitePiecesValue += val;
+        else blackPiecesValue += val;
+      }
+    }
+  }
+
+  // Endgame: No queens on the board, OR both sides have <= 13 points of non-pawn material
+  if ((whiteQueens === 0 && blackQueens === 0) || (whitePiecesValue <= 13 && blackPiecesValue <= 13)) {
+    return 'endgame';
+  }
+
+  // Opening: Within the first 9 moves
+  if (moveNumber <= 9) {
+    return 'opening';
+  }
+
+  return 'middlegame';
+}
