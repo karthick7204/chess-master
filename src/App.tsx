@@ -321,10 +321,14 @@ export const App: React.FC = () => {
         const executedMove = gameCopy.move(coachMove);
 
         if (executedMove) {
-          if (executedMove.captured) {
-            SoundService.playCapture();
+          if (gameCopy.isCheckmate()) {
+            SoundService.playCheckmate();
           } else if (gameCopy.inCheck()) {
             SoundService.playCheck();
+          } else if (executedMove.captured) {
+            SoundService.playCapture();
+          } else if (executedMove.san === 'O-O' || executedMove.san === 'O-O-O') {
+            SoundService.playCastle();
           } else {
             SoundService.playMove();
           }
@@ -393,6 +397,19 @@ export const App: React.FC = () => {
 
       const executedMove = gameCopy.move(moveObj);
       if (!executedMove) return false;
+
+      // Play authentic board sound immediately
+      if (gameCopy.isCheckmate()) {
+        SoundService.playCheckmate();
+      } else if (gameCopy.inCheck()) {
+        SoundService.playCheck();
+      } else if (executedMove.captured) {
+        SoundService.playCapture();
+      } else if (executedMove.san === 'O-O' || executedMove.san === 'O-O-O') {
+        SoundService.playCastle();
+      } else {
+        SoundService.playMove();
+      }
 
       clearAllPendingCoachTimers();
 
@@ -617,10 +634,14 @@ export const App: React.FC = () => {
 
         const executedMove = gameCopy.move(botMove);
         if (executedMove) {
-          if (executedMove.captured) {
-            SoundService.playCapture();
+          if (gameCopy.isCheckmate()) {
+            SoundService.playCheckmate();
           } else if (gameCopy.inCheck()) {
             SoundService.playCheck();
+          } else if (executedMove.captured) {
+            SoundService.playCapture();
+          } else if (executedMove.san === 'O-O' || executedMove.san === 'O-O-O') {
+            SoundService.playCastle();
           } else {
             SoundService.playMove();
           }
@@ -672,10 +693,14 @@ export const App: React.FC = () => {
         vsTimeoutRef.current = null;
       }
 
-      if (executedMove.captured) {
-        SoundService.playCapture();
+      if (gameCopy.isCheckmate()) {
+        SoundService.playCheckmate();
       } else if (gameCopy.inCheck()) {
         SoundService.playCheck();
+      } else if (executedMove.captured) {
+        SoundService.playCapture();
+      } else if (executedMove.san === 'O-O' || executedMove.san === 'O-O-O') {
+        SoundService.playCastle();
       } else {
         SoundService.playMove();
       }
@@ -850,6 +875,8 @@ export const App: React.FC = () => {
         SoundService.playCheck();
       } else if (executedMove.captured) {
         SoundService.playCapture();
+      } else if (executedMove.san === 'O-O' || executedMove.san === 'O-O-O') {
+        SoundService.playCastle();
       } else {
         SoundService.playMove();
       }

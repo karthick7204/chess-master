@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess, Square, PieceSymbol } from 'chess.js';
 import { BoardArrow, PieceColor, MoveQuality } from '../../types/chess';
-import { SoundService } from '../../services/soundService';
 
 interface ChessBoardContainerProps {
   game: Chess;
@@ -48,10 +47,7 @@ export const ChessBoardContainer: React.FC<ChessBoardContainerProps> = ({
       if (possibleMoves.includes(square)) {
         const piece = game.get(selectedSquare);
         const isPromotion = piece?.type === 'p' && ((piece.color === 'w' && square.endsWith('8')) || (piece.color === 'b' && square.endsWith('1')));
-        const success = onPlayerMove(selectedSquare, square, isPromotion ? 'q' : undefined);
-        if (success) {
-          SoundService.playMove();
-        }
+        onPlayerMove(selectedSquare, square, isPromotion ? 'q' : undefined);
         setSelectedSquare(null);
         setPossibleMoves([]);
         return;
@@ -76,9 +72,6 @@ export const ChessBoardContainer: React.FC<ChessBoardContainerProps> = ({
     const isPromotion = piece?.type === 'p' && ((piece.color === 'w' && targetSquare.endsWith('8')) || (piece.color === 'b' && targetSquare.endsWith('1')));
 
     const success = onPlayerMove(sourceSquare, targetSquare, isPromotion ? 'q' : undefined);
-    if (success) {
-      SoundService.playMove();
-    }
     setSelectedSquare(null);
     setPossibleMoves([]);
     return success;
