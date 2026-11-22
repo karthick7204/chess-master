@@ -10,7 +10,8 @@ interface ChessBoardContainerProps {
   arrows: BoardArrow[];
   onPlayerMove: (from: Square, to: Square, promotion?: PieceSymbol) => boolean;
   isEngineThinking: boolean;
-  playerColor: PieceColor;
+  playerColor?: PieceColor;
+  allowBothSides?: boolean;
   lastMove?: { from: Square; to: Square; quality?: MoveQuality } | null;
 }
 
@@ -20,14 +21,16 @@ export const ChessBoardContainer: React.FC<ChessBoardContainerProps> = ({
   arrows,
   onPlayerMove,
   isEngineThinking,
-  playerColor,
+  playerColor = 'w',
+  allowBothSides = false,
   lastMove
 }) => {
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<Square[]>([]);
 
-  // Player can move whenever it is player's turn on this board position and engine is not thinking
-  const isPlayerTurn = !isEngineThinking && game.turn() === playerColor;
+  const activeTurnColor = game.turn();
+  // Player can move if not thinking and either allowBothSides is true or it matches playerColor
+  const isPlayerTurn = !isEngineThinking && (allowBothSides || activeTurnColor === playerColor);
 
   const getPossibleMoves = (square: Square) => {
     try {
@@ -56,7 +59,8 @@ export const ChessBoardContainer: React.FC<ChessBoardContainerProps> = ({
     }
 
     const piece = game.get(square);
-    if (piece && piece.color === playerColor) {
+    const canSelectPiece = piece && (allowBothSides ? piece.color === activeTurnColor : piece.color === playerColor);
+    if (canSelectPiece) {
       setSelectedSquare(square);
       setPossibleMoves(getPossibleMoves(square));
     } else {
@@ -136,7 +140,9 @@ export const ChessBoardContainer: React.FC<ChessBoardContainerProps> = ({
         boardOrientation={boardOrientation}
         onPieceDrop={handlePieceDrop}
         onSquareClick={handleSquareClick}
-        isDraggablePiece={({ piece }) => !isEngineThinking && isPlayerTurn && piece[0] === playerColor}
+        isDraggablePiece={({ piece }) =>
+          !isEngineThinking && isPlayerTurn && (allowBothSides ? piece[0] === activeTurnColor : piece[0] === playerColor)
+        }
         customArrows={customArrows}
         customSquareStyles={customSquareStyles}
         areArrowsAllowed={true}

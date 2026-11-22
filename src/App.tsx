@@ -4,6 +4,7 @@ import { ChessBoardContainer } from './components/Board/ChessBoardContainer';
 import { EvaluationBar } from './components/Board/EvaluationBar';
 import { CoachPanel } from './components/Coach/CoachPanel';
 import { VsComputerPanel } from './components/VsComputer/VsComputerPanel';
+import { PracticeBoardPanel } from './components/Practice/PracticeBoardPanel';
 import { SettingsModal } from './components/Modals/SettingsModal';
 import { GameOverModal } from './components/Modals/GameOverModal';
 import { AdaptiveDrillsModal } from './components/Modals/AdaptiveDrillsModal';
@@ -36,7 +37,8 @@ import {
   ChevronsRight,
   GraduationCap,
   Bot,
-  Target
+  Target,
+  ArrowLeftRight
 } from 'lucide-react';
 
 interface StoredMove {
@@ -57,8 +59,8 @@ const INITIAL_SETTINGS: GameSettings = {
 };
 
 export const App: React.FC = () => {
-  // Navigation Tabs: 'coach' (Instructional) or 'vs-computer' (Pure Match without instructions)
-  const [activeTab, setActiveTab] = useState<'coach' | 'vs-computer'>('coach');
+  // Navigation Tabs: 'coach' (Instructional), 'vs-computer' (Bot Match), or 'practice' (Free 2-Player Practice Board)
+  const [activeTab, setActiveTab] = useState<'coach' | 'vs-computer' | 'practice'>('coach');
 
   // ==========================================
   // COACH MODE STATE
@@ -153,10 +155,40 @@ export const App: React.FC = () => {
     return vsMovesRecordRef.current[vsViewingIndex - 1] || null;
   }, [vsViewingIndex]);
 
+  // ==========================================
+  // PRACTICE BOARD STATE (Free 2-Player & Teaching)
+  // ==========================================
+  const [practiceGame, setPracticeGame] = useState<Chess>(new Chess());
+  const [practiceBoardOrientation, setPracticeBoardOrientation] = useState<'white' | 'black'>('white');
+  const [practiceArrows, setPracticeArrows] = useState<BoardArrow[]>([]);
+  const [practiceEvaluation, setPracticeEvaluation] = useState<number>(0);
+  const [practiceShowEval, setPracticeShowEval] = useState<boolean>(true);
+  const [practiceViewingIndex, setPracticeViewingIndex] = useState<number>(0);
+  const [practiceOpening, setPracticeOpening] = useState<OpeningInfo | null>(null);
+  const practiceFenHistoryRef = useRef<string[]>([new Chess().fen()]);
+  const practiceMovesRecordRef = useRef<StoredMove[]>([]);
+  const [practiceMovesRecord, setPracticeMovesRecord] = useState<StoredMove[]>([]);
+
+  const isPracticeLivePosition = practiceViewingIndex === practiceFenHistoryRef.current.length - 1;
+
+  const practiceDisplayGame = useMemo(() => {
+    if (isPracticeLivePosition) return practiceGame;
+    try {
+      return new Chess(practiceFenHistoryRef.current[practiceViewingIndex]);
+    } catch {
+      return practiceGame;
+    }
+  }, [practiceGame, isPracticeLivePosition, practiceViewingIndex]);
+
+  const practiceLastMove = useMemo(() => {
+    if (practiceViewingIndex === 0 || practiceMovesRecord.length === 0) return null;
+    return practiceMovesRecord[practiceViewingIndex - 1] || null;
+  }, [practiceViewingIndex, practiceMovesRecord]);
+
   // Tab switcher
-  const handleTabSwitch = (tab: 'coach' | 'vs-computer') => {
+  const handleTabSwitch = (tab: 'coach' | 'vs-computer' | 'practice') => {
     if (tab === activeTab) return;
-    if (tab === 'vs-computer') {
+    if (tab !== 'coach') {
       VoiceService.cancel();
     }
     setActiveTab(tab);
@@ -165,6 +197,7 @@ export const App: React.FC = () => {
   // Captured pieces calculation
   const coachCaptured = useMemo(() => getCapturedPieces(displayGame.fen()), [displayGame]);
   const vsCaptured = useMemo(() => getCapturedPieces(vsDisplayGame.fen()), [vsDisplayGame]);
+  const practiceCaptured = useMemo(() => getCapturedPieces(practiceDisplayGame.fen()), [practiceDisplayGame]);
 
   // Aborts any pending coach move or analysis timeouts
   const clearAllPendingCoachTimers = useCallback(() => {
@@ -207,7 +240,7 @@ export const App: React.FC = () => {
           e.preventDefault();
           setViewingIndex(fenHistoryRef.current.length - 1);
         }
-      } else {
+      } else if (activeTab === 'vs-computer') {
         // Vs Computer mode keyboard navigation
         if (e.key === 'ArrowLeft') {
           e.preventDefault();
@@ -221,6 +254,23 @@ export const App: React.FC = () => {
         } else if (e.key === 'ArrowDown' || e.key === 'End') {
           e.preventDefault();
           setVsViewingIndex(vsFenHistoryRef.current.length - 1);
+        }
+      } else if (activeTab === 'practice') {
+        // Practice Board keyboard navigation
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          setPracticeViewingIndex(idx => Math.max(0, idx - 1));
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          setPracticeViewingIndex(idx => Math.min(practiceFenHistoryRef.current.length - 1, idx + 1));
+        } else if (e.key === 'ArrowUp' || e.key === 'Home') {
+          e.preventDefault();
+          setPracticeViewingIndex(0);
+        } else if (e.key === 'ArrowDown' || e.key === 'End') {
+          e.preventDefault();
+          setPracticeViewingIndex(practiceFenHistoryRef.current.length - 1);
+        } else if (e.key.toLowerCase() === 'f') {
+          setPracticeBoardOrientation(ori => (ori === 'white' ? 'black' : 'white'));
         }
       }
     };
@@ -779,6 +829,137 @@ export const App: React.FC = () => {
     });
   };
 
+  // ==========================================
+  // PRACTICE BOARD HANDLERS (Free 2-Player & Teaching)
+  // ==========================================
+  const handlePracticeMove = (from: Square, to: Square, promotion?: PieceSymbol): boolean => {
+    try {
+      const targetFen = practiceFenHistoryRef.current[practiceViewingIndex];
+      const gameCopy = new Chess(targetFen);
+
+      const moveObj: { from: Square; to: Square; promotion?: PieceSymbol } = { from, to };
+      if (promotion) moveObj.promotion = promotion;
+
+      const executedMove = gameCopy.move(moveObj);
+      if (!executedMove) return false;
+
+      // Play audio feedback
+      if (gameCopy.isCheckmate()) {
+        SoundService.playCheckmate();
+      } else if (gameCopy.inCheck()) {
+        SoundService.playCheck();
+      } else if (executedMove.captured) {
+        SoundService.playCapture();
+      } else {
+        SoundService.playMove();
+      }
+
+      // Truncate history if moving from historical viewing index
+      const truncatedFens = practiceFenHistoryRef.current.slice(0, practiceViewingIndex + 1);
+      const truncatedMoves = practiceMovesRecordRef.current.slice(0, practiceViewingIndex);
+
+      const newFenHistory = [...truncatedFens, gameCopy.fen()];
+      practiceFenHistoryRef.current = newFenHistory;
+
+      const currentRecord: StoredMove = {
+        from: executedMove.from as Square,
+        to: executedMove.to as Square,
+        san: executedMove.san
+      };
+      const newMoves = [...truncatedMoves, currentRecord];
+      practiceMovesRecordRef.current = newMoves;
+      setPracticeMovesRecord(newMoves);
+
+      setPracticeGame(gameCopy);
+      setPracticeViewingIndex(newFenHistory.length - 1);
+      setPracticeArrows([]);
+
+      // Update evaluation and recognized opening
+      const score = ChessAnalysisEngine.evaluatePosition(gameCopy);
+      setPracticeEvaluation(score);
+
+      const history = gameCopy.history();
+      const opening = findOpeningByMoves(history);
+      setPracticeOpening(opening);
+
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handlePracticeTakeBack = () => {
+    if (practiceFenHistoryRef.current.length <= 1) return;
+
+    const targetIdx = Math.max(0, practiceFenHistoryRef.current.length - 2);
+    const newFenHistory = practiceFenHistoryRef.current.slice(0, targetIdx + 1);
+    const newMoves = practiceMovesRecordRef.current.slice(0, targetIdx);
+
+    practiceFenHistoryRef.current = newFenHistory;
+    practiceMovesRecordRef.current = newMoves;
+    setPracticeMovesRecord(newMoves);
+
+    const reverted = new Chess(newFenHistory[targetIdx]);
+    setPracticeGame(reverted);
+    setPracticeViewingIndex(targetIdx);
+    setPracticeArrows([]);
+
+    const score = ChessAnalysisEngine.evaluatePosition(reverted);
+    setPracticeEvaluation(score);
+
+    const opening = findOpeningByMoves(reverted.history());
+    setPracticeOpening(opening);
+
+    SoundService.playMove();
+  };
+
+  const handlePracticeReset = () => {
+    const fresh = new Chess();
+    practiceFenHistoryRef.current = [fresh.fen()];
+    practiceMovesRecordRef.current = [];
+    setPracticeMovesRecord([]);
+    setPracticeViewingIndex(0);
+    setPracticeGame(fresh);
+    setPracticeArrows([]);
+    setPracticeEvaluation(0);
+    setPracticeOpening(null);
+    SoundService.playMove();
+  };
+
+  const handlePracticeClear = () => {
+    handlePracticeReset();
+  };
+
+  const handlePracticeLoadFen = (fenString: string) => {
+    try {
+      const loaded = new Chess(fenString);
+      practiceFenHistoryRef.current = [loaded.fen()];
+      practiceMovesRecordRef.current = [];
+      setPracticeMovesRecord([]);
+      setPracticeViewingIndex(0);
+      setPracticeGame(loaded);
+      setPracticeArrows([]);
+      setPracticeEvaluation(ChessAnalysisEngine.evaluatePosition(loaded));
+      setPracticeOpening(null);
+      SoundService.playMove();
+    } catch (e) {
+      console.error("Invalid FEN:", e);
+    }
+  };
+
+  const handlePracticeBestMoveHint = () => {
+    const bestMove = ChessAnalysisEngine.getBestMove(practiceDisplayGame, 3);
+    if (bestMove) {
+      setPracticeArrows([
+        {
+          from: bestMove.bestMove.from,
+          to: bestMove.bestMove.to,
+          color: '#81b64c'
+        }
+      ]);
+    }
+  };
+
   useEffect(() => {
     startNewGame();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -821,6 +1002,18 @@ export const App: React.FC = () => {
               <Bot className="w-3.5 h-3.5" />
               <span>Vs Computer</span>
             </button>
+
+            <button
+              onClick={() => handleTabSwitch('practice')}
+              className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                activeTab === 'practice'
+                  ? 'bg-[#81b64c] text-white shadow-sm'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#2b2926]'
+              }`}
+            >
+              <span>♟️</span>
+              <span>Practice Board</span>
+            </button>
           </div>
         </div>
 
@@ -854,10 +1047,14 @@ export const App: React.FC = () => {
           </button>
 
           <button
-            onClick={() => (activeTab === 'coach' ? startNewGame() : startNewVsGame())}
+            onClick={() => {
+              if (activeTab === 'coach') startNewGame();
+              else if (activeTab === 'vs-computer') startNewVsGame();
+              else handlePracticeReset();
+            }}
             className="px-3 py-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-xs font-semibold text-zinc-300 transition"
           >
-            New Game
+            {activeTab === 'practice' ? 'Reset Board' : 'New Game'}
           </button>
           {activeTab === 'coach' && (
             <button
@@ -1011,7 +1208,7 @@ export const App: React.FC = () => {
                 </div>
               </div>
             </>
-          ) : (
+          ) : activeTab === 'vs-computer' ? (
             /* VS COMPUTER MODE BOARD VIEW (Without Instructions) */
             <>
               {/* Top Bar above Board: Opponent Bot Profile */}
@@ -1136,6 +1333,158 @@ export const App: React.FC = () => {
                 </div>
               </div>
             </>
+          ) : (
+            /* PRACTICE BOARD VIEW (Free 2-Player & Teaching) */
+            <>
+              {/* Top Bar above Board: Practice Player Status (Black side or Top Player) */}
+              <div className="w-full max-w-[710px] flex items-center justify-between pb-1.5 px-1 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded bg-[#312e2b] border border-zinc-700/60 flex items-center justify-center text-sm shadow-sm">
+                    {practiceBoardOrientation === 'white' ? '♟️' : '♙'}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-white text-xs">
+                      {practiceBoardOrientation === 'white' ? 'Black' : 'White'}
+                    </span>
+                    <span className="text-[10px] bg-[#363430] text-zinc-300 px-1.5 py-0.2 rounded font-semibold">
+                      Practice
+                    </span>
+                  </div>
+
+                  {/* Captured pieces */}
+                  <div className="flex items-center gap-0.5 ml-2 text-zinc-400 text-sm">
+                    {(practiceBoardOrientation === 'white'
+                      ? practiceCaptured.blackCaptured
+                      : practiceCaptured.whiteCaptured
+                    ).map((p, idx) => (
+                      <span key={idx} className="leading-none text-white opacity-85">
+                        {PIECE_ICONS[p] || p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Flip Board Quick Icon */}
+                <button
+                  onClick={() =>
+                    setPracticeBoardOrientation(ori => (ori === 'white' ? 'black' : 'white'))
+                  }
+                  className="p-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 transition flex items-center gap-1 text-[11px]"
+                  title="Flip Board View (F)"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                  <span>Flip</span>
+                </button>
+              </div>
+
+              {/* Center: Evaluation Bar + Classic Brown Chessboard (Free 2-Player) */}
+              <div className="w-full max-w-[710px] flex items-stretch justify-center">
+                {practiceShowEval && (
+                  <EvaluationBar
+                    score={practiceEvaluation}
+                    isFlipped={practiceBoardOrientation === 'black'}
+                  />
+                )}
+
+                <div className="flex-1">
+                  <ChessBoardContainer
+                    game={practiceDisplayGame}
+                    boardOrientation={practiceBoardOrientation}
+                    arrows={practiceArrows}
+                    onPlayerMove={handlePracticeMove}
+                    isEngineThinking={false}
+                    allowBothSides={true}
+                    lastMove={practiceLastMove}
+                  />
+                </div>
+              </div>
+
+              {/* Bottom Bar below Board: Bottom Player Status & Move Navigation */}
+              <div className="w-full max-w-[710px] flex items-center justify-between pt-2 px-1 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded bg-[#312e2b] border border-zinc-700/60 flex items-center justify-center text-sm shadow-sm">
+                    {practiceBoardOrientation === 'white' ? '♙' : '♟️'}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-white text-xs">
+                      {practiceBoardOrientation === 'white' ? 'White' : 'Black'}
+                    </span>
+                  </div>
+
+                  {/* Captured pieces by Bottom Player */}
+                  <div className="flex items-center gap-0.5 ml-2 text-zinc-400 text-sm">
+                    {(practiceBoardOrientation === 'white'
+                      ? practiceCaptured.whiteCaptured
+                      : practiceCaptured.blackCaptured
+                    ).map((p, idx) => (
+                      <span key={idx} className="leading-none text-zinc-300 opacity-85">
+                        {PIECE_ICONS[p] || p}
+                      </span>
+                    ))}
+                    {practiceCaptured.materialAdvantage !== 0 && (
+                      <span className="text-[10px] font-bold text-zinc-400 ml-1">
+                        {practiceCaptured.materialAdvantage > 0
+                          ? `+${practiceCaptured.materialAdvantage}`
+                          : practiceCaptured.materialAdvantage}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Move Navigation Buttons */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPracticeViewingIndex(0)}
+                    disabled={practiceViewingIndex === 0}
+                    className="p-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                    title="Start (Home / ↑)"
+                  >
+                    <ChevronsLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setPracticeViewingIndex(idx => Math.max(0, idx - 1))}
+                    disabled={practiceViewingIndex === 0}
+                    className="p-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                    title="Previous Move (←)"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      setPracticeViewingIndex(idx =>
+                        Math.min(practiceFenHistoryRef.current.length - 1, idx + 1)
+                      )
+                    }
+                    disabled={isPracticeLivePosition}
+                    className="p-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                    title="Next Move (→)"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      setPracticeViewingIndex(practiceFenHistoryRef.current.length - 1)
+                    }
+                    disabled={isPracticeLivePosition}
+                    className="p-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                    title="Live Move (End / ↓)"
+                  >
+                    <ChevronsRight className="w-3.5 h-3.5" />
+                  </button>
+
+                  {!isPracticeLivePosition && (
+                    <button
+                      onClick={() =>
+                        setPracticeViewingIndex(practiceFenHistoryRef.current.length - 1)
+                      }
+                      className="ml-2 px-2.5 py-1 text-xs font-bold bg-[#81b64c] hover:bg-[#a3d160] text-white rounded transition shadow-sm"
+                    >
+                      Return to Live
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -1165,7 +1514,7 @@ export const App: React.FC = () => {
                 setIsMasterclassOpen(true);
               }}
             />
-          ) : (
+          ) : activeTab === 'vs-computer' ? (
             <VsComputerPanel
               currentBot={vsBot}
               onSelectBot={bot => {
@@ -1191,6 +1540,30 @@ export const App: React.FC = () => {
                 setVsBoardOrientation(ori => (ori === 'white' ? 'black' : 'white'))
               }
               canTakeBack={vsFenHistoryRef.current.length > 1}
+            />
+          ) : (
+            <PracticeBoardPanel
+              moves={practiceMovesRecord}
+              viewingIndex={practiceViewingIndex}
+              onSelectMoveIndex={idx => setPracticeViewingIndex(idx)}
+              turn={practiceGame.turn()}
+              isInCheck={practiceGame.inCheck()}
+              isCheckmate={practiceGame.isCheckmate()}
+              isDraw={practiceGame.isDraw()}
+              currentOpening={practiceOpening}
+              onTakeBack={handlePracticeTakeBack}
+              canTakeBack={practiceFenHistoryRef.current.length > 1}
+              onResetBoard={handlePracticeReset}
+              onClearBoard={handlePracticeClear}
+              onFlipBoard={() =>
+                setPracticeBoardOrientation(ori => (ori === 'white' ? 'black' : 'white'))
+              }
+              onShowBestMoveHint={handlePracticeBestMoveHint}
+              boardOrientation={practiceBoardOrientation}
+              showEvalBar={practiceShowEval}
+              onToggleEvalBar={() => setPracticeShowEval(s => !s)}
+              currentFen={practiceDisplayGame.fen()}
+              onLoadFen={handlePracticeLoadFen}
             />
           )}
         </div>
