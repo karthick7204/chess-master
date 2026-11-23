@@ -5,6 +5,7 @@ import { EvaluationBar } from './components/Board/EvaluationBar';
 import { CoachPanel } from './components/Coach/CoachPanel';
 import { VsComputerPanel } from './components/VsComputer/VsComputerPanel';
 import { PracticeBoardPanel } from './components/Practice/PracticeBoardPanel';
+import { OpeningsExplorerPanel } from './components/Openings/OpeningsExplorerPanel';
 import { SettingsModal } from './components/Modals/SettingsModal';
 import { GameOverModal } from './components/Modals/GameOverModal';
 import { AdaptiveDrillsModal } from './components/Modals/AdaptiveDrillsModal';
@@ -23,12 +24,13 @@ import {
   PieceColor
 } from './types/chess';
 import { COACH_PERSONALITIES } from './data/personalities';
-import { findOpeningByMoves } from './data/openings';
+import { OPENINGS_DATABASE, findOpeningByMoves } from './data/openings';
 import { ChessAnalysisEngine } from './services/stockfishEngine';
 import { CoachNarrator } from './services/coachNarrator';
 import { VoiceService } from './services/voiceService';
 import { SoundService } from './services/soundService';
 import { getCapturedPieces, PIECE_ICONS } from './utils/chessUtils';
+import confetti from 'canvas-confetti';
 import {
   Settings,
   ChevronLeft,
@@ -38,7 +40,8 @@ import {
   GraduationCap,
   Bot,
   Target,
-  ArrowLeftRight
+  ArrowLeftRight,
+  BookOpen
 } from 'lucide-react';
 
 interface StoredMove {
@@ -59,8 +62,8 @@ const INITIAL_SETTINGS: GameSettings = {
 };
 
 export const App: React.FC = () => {
-  // Navigation Tabs: 'coach' (Instructional), 'vs-computer' (Bot Match), or 'practice' (Free 2-Player Practice Board)
-  const [activeTab, setActiveTab] = useState<'coach' | 'vs-computer' | 'practice'>('coach');
+  // Navigation Tabs: 'coach' (Instructional), 'vs-computer' (Bot Match), 'practice' (Free 2-Player Practice Board), or 'openings' (Learn Openings)
+  const [activeTab, setActiveTab] = useState<'coach' | 'vs-computer' | 'practice' | 'openings'>('coach');
 
   // ==========================================
   // COACH MODE STATE
@@ -186,7 +189,7 @@ export const App: React.FC = () => {
   }, [practiceViewingIndex, practiceMovesRecord]);
 
   // Tab switcher
-  const handleTabSwitch = (tab: 'coach' | 'vs-computer' | 'practice') => {
+  const handleTabSwitch = (tab: 'coach' | 'vs-computer' | 'practice' | 'openings') => {
     if (tab === activeTab) return;
     if (tab !== 'coach') {
       VoiceService.cancel();
@@ -198,6 +201,204 @@ export const App: React.FC = () => {
   const coachCaptured = useMemo(() => getCapturedPieces(displayGame.fen()), [displayGame]);
   const vsCaptured = useMemo(() => getCapturedPieces(vsDisplayGame.fen()), [vsDisplayGame]);
   const practiceCaptured = useMemo(() => getCapturedPieces(practiceDisplayGame.fen()), [practiceDisplayGame]);
+
+  // ==========================================
+  // LEARN OPENINGS STATE & HANDLERS
+  // ==========================================
+  const [selectedOpening, setSelectedOpening] = useState<OpeningInfo>(OPENINGS_DATABASE[3]); // Italian Game
+  const [openingMoveIndex, setOpeningMoveIndex] = useState<number>(0);
+  const [openingBoardOrientation, setOpeningBoardOrientation] = useState<'white' | 'black'>('white');
+  const [openingArrows, setOpeningArrows] = useState<BoardArrow[]>([]);
+  const [isAutoPlayingOpening, setIsAutoPlayingOpening] = useState(false);
+  const [isTestingOpening, setIsTestingOpening] = useState(false);
+  const [openingTestStatus, setOpeningTestStatus] = useState<'idle' | 'correct' | 'wrong' | 'completed'>('idle');
+  const [openingTestMessage, setOpeningTestMessage] = useState<string>('');
+
+  const openingGame = useMemo(() => {
+    const c = new Chess();
+    for (let i = 0; i < openingMoveIndex; i++) {
+      try {
+        c.move(selectedOpening.moves[i]);
+      } catch {
+        break;
+      }
+    }
+    return c;
+  }, [selectedOpening, openingMoveIndex]);
+
+  const openingLastMove = useMemo(() => {
+    if (openingMoveIndex === 0) return null;
+    const temp = new Chess();
+    for (let i = 0; i < openingMoveIndex - 1; i++) {
+      temp.move(selectedOpening.moves[i]);
+    }
+    try {
+      const m = temp.move(selectedOpening.moves[openingMoveIndex - 1]);
+      return m ? { from: m.from as Square, to: m.to as Square } : null;
+    } catch {
+      return null;
+    }
+  }, [selectedOpening, openingMoveIndex]);
+
+  useEffect(() => {
+    if (openingLastMove && !isTestingOpening) {
+      setOpeningArrows([
+        {
+          from: openingLastMove.from,
+          to: openingLastMove.to,
+          color: '#81b64c'
+        }
+      ]);
+    } else if (!isTestingOpening) {
+      setOpeningArrows([]);
+    }
+  }, [openingLastMove, isTestingOpening]);
+
+  const handleOpeningStep = useCallback((direction: 'start' | 'prev' | 'next' | 'end' | number) => {
+    setOpeningTestStatus('idle');
+    setOpeningTestMessage('');
+    let target = 0;
+    if (typeof direction === 'number') {
+      target = Math.max(0, Math.min(selectedOpening.moves.length, direction));
+    } else if (direction === 'start') {
+      target = 0;
+    } else if (direction === 'prev') {
+      target = Math.max(0, openingMoveIndex - 1);
+    } else if (direction === 'next') {
+      target = Math.min(selectedOpening.moves.length, openingMoveIndex + 1);
+    } else if (direction === 'end') {
+      target = selectedOpening.moves.length;
+    }
+    setOpeningMoveIndex(target);
+    SoundService.playMove();
+  }, [selectedOpening, openingMoveIndex]);
+
+  const handleSelectOpening = useCallback((opening: OpeningInfo) => {
+    setSelectedOpening(opening);
+    setOpeningMoveIndex(0);
+    setIsAutoPlayingOpening(false);
+    setIsTestingOpening(false);
+    setOpeningTestStatus('idle');
+    setOpeningTestMessage('');
+    setOpeningArrows([]);
+    setOpeningBoardOrientation(opening.side || 'white');
+    SoundService.playMove();
+  }, []);
+
+  useEffect(() => {
+    if (!isAutoPlayingOpening) return;
+    const timer = setInterval(() => {
+      setOpeningMoveIndex(prev => {
+        if (prev >= selectedOpening.moves.length) {
+          setIsAutoPlayingOpening(false);
+          return prev;
+        }
+        SoundService.playMove();
+        return prev + 1;
+      });
+    }, 1200);
+    return () => clearInterval(timer);
+  }, [isAutoPlayingOpening, selectedOpening]);
+
+  const handleToggleOpeningTesting = useCallback(() => {
+    setIsTestingOpening(prev => {
+      const nextVal = !prev;
+      setIsAutoPlayingOpening(false);
+      setOpeningTestStatus('idle');
+      setOpeningTestMessage('');
+      setOpeningArrows([]);
+      if (nextVal) {
+        setOpeningMoveIndex(0);
+        if (selectedOpening.side === 'black' && selectedOpening.moves.length > 0) {
+          setTimeout(() => {
+            setOpeningMoveIndex(1);
+            SoundService.playMove();
+          }, 350);
+        }
+      } else {
+        setOpeningMoveIndex(0);
+      }
+      return nextVal;
+    });
+  }, [selectedOpening]);
+
+  const handleOpeningTestMove = useCallback((from: Square, to: Square, promotion?: PieceSymbol) => {
+    if (!isTestingOpening) return false;
+    if (openingMoveIndex >= selectedOpening.moves.length) return false;
+
+    const expectedSan = selectedOpening.moves[openingMoveIndex];
+    const temp = new Chess(openingGame.fen());
+    try {
+      const moveRes = temp.move({ from, to, promotion: promotion || 'q' });
+      if (!moveRes) return false;
+
+      if (moveRes.san === expectedSan) {
+        const nextIndex = openingMoveIndex + 1;
+        setOpeningMoveIndex(nextIndex);
+        SoundService.playMove();
+        setOpeningArrows([]);
+
+        if (nextIndex >= selectedOpening.moves.length) {
+          setOpeningTestStatus('completed');
+          confetti({
+            particleCount: 80,
+            spread: 60,
+            origin: { y: 0.6 }
+          });
+        } else {
+          setOpeningTestStatus('correct');
+          setTimeout(() => {
+            setOpeningMoveIndex(idx => {
+              if (idx === nextIndex && idx < selectedOpening.moves.length) {
+                SoundService.playMove();
+                const afterOpponent = idx + 1;
+                if (afterOpponent >= selectedOpening.moves.length) {
+                  setOpeningTestStatus('completed');
+                  confetti({
+                    particleCount: 80,
+                    spread: 60,
+                    origin: { y: 0.6 }
+                  });
+                }
+                return afterOpponent;
+              }
+              return idx;
+            });
+          }, 400);
+        }
+        return true;
+      } else {
+        setOpeningTestStatus('wrong');
+        setOpeningTestMessage(`That was ${moveRes.san}. Book move is ${expectedSan}. Try again!`);
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  }, [isTestingOpening, openingMoveIndex, selectedOpening, openingGame]);
+
+  const handleShowOpeningHint = useCallback(() => {
+    if (openingMoveIndex >= selectedOpening.moves.length) return;
+    const expectedSan = selectedOpening.moves[openingMoveIndex];
+    const temp = new Chess(openingGame.fen());
+    try {
+      const moveRes = temp.move(expectedSan);
+      if (moveRes) {
+        setOpeningArrows([
+          {
+            from: moveRes.from,
+            to: moveRes.to,
+            color: '#f59e0b'
+          }
+        ]);
+        setOpeningTestMessage(`Hint: Play ${expectedSan} (${moveRes.from} → ${moveRes.to})`);
+      }
+    } catch {
+      // ignore
+    }
+  }, [openingMoveIndex, selectedOpening, openingGame]);
+
+  const openingCaptured = useMemo(() => getCapturedPieces(openingGame.fen()), [openingGame]);
 
   // Aborts any pending coach move or analysis timeouts
   const clearAllPendingCoachTimers = useCallback(() => {
@@ -271,6 +472,23 @@ export const App: React.FC = () => {
           setPracticeViewingIndex(practiceFenHistoryRef.current.length - 1);
         } else if (e.key.toLowerCase() === 'f') {
           setPracticeBoardOrientation(ori => (ori === 'white' ? 'black' : 'white'));
+        }
+      } else if (activeTab === 'openings') {
+        // Learn Openings keyboard navigation
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          handleOpeningStep('prev');
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          handleOpeningStep('next');
+        } else if (e.key === 'ArrowUp' || e.key === 'Home') {
+          e.preventDefault();
+          handleOpeningStep('start');
+        } else if (e.key === 'ArrowDown' || e.key === 'End') {
+          e.preventDefault();
+          handleOpeningStep('end');
+        } else if (e.key.toLowerCase() === 'f') {
+          setOpeningBoardOrientation(ori => (ori === 'white' ? 'black' : 'white'));
         }
       }
     };
@@ -1041,6 +1259,18 @@ export const App: React.FC = () => {
               <span>♟️</span>
               <span>Practice Board</span>
             </button>
+
+            <button
+              onClick={() => handleTabSwitch('openings')}
+              className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                activeTab === 'openings'
+                  ? 'bg-[#81b64c] text-white shadow-sm'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#2b2926]'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Learn Openings</span>
+            </button>
           </div>
         </div>
 
@@ -1077,11 +1307,12 @@ export const App: React.FC = () => {
             onClick={() => {
               if (activeTab === 'coach') startNewGame();
               else if (activeTab === 'vs-computer') startNewVsGame();
-              else handlePracticeReset();
+              else if (activeTab === 'practice') handlePracticeReset();
+              else handleOpeningStep('start');
             }}
             className="px-3 py-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-xs font-semibold text-zinc-300 transition"
           >
-            {activeTab === 'practice' ? 'Reset Board' : 'New Game'}
+            {activeTab === 'practice' ? 'Reset Board' : activeTab === 'openings' ? 'Reset Line' : 'New Game'}
           </button>
           {activeTab === 'coach' && (
             <button
@@ -1360,7 +1591,7 @@ export const App: React.FC = () => {
                 </div>
               </div>
             </>
-          ) : (
+          ) : activeTab === 'practice' ? (
             /* PRACTICE BOARD VIEW (Free 2-Player & Teaching) */
             <>
               {/* Top Bar above Board: Practice Player Status (Black side or Top Player) */}
@@ -1512,6 +1743,130 @@ export const App: React.FC = () => {
                 </div>
               </div>
             </>
+          ) : (
+            /* LEARN OPENINGS BOARD VIEW */
+            <>
+              {/* Top Bar above Board: Opening Title & Perspective */}
+              <div className="w-full max-w-[710px] flex items-center justify-between pb-1.5 px-1 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xs font-bold shadow-sm">
+                    {selectedOpening.eco}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-white text-xs">
+                      {selectedOpening.name}
+                    </span>
+                    <span className="text-[10px] bg-[#363430] text-zinc-300 px-1.5 py-0.2 rounded font-semibold capitalize">
+                      {selectedOpening.side === 'white' ? 'White Line' : 'Black Line'}
+                    </span>
+                  </div>
+
+                  {/* Captured pieces */}
+                  <div className="flex items-center gap-0.5 ml-2 text-zinc-400 text-sm">
+                    {(openingBoardOrientation === 'white'
+                      ? openingCaptured.blackCaptured
+                      : openingCaptured.whiteCaptured
+                    ).map((p, idx) => (
+                      <span key={idx} className="leading-none text-white opacity-85">
+                        {PIECE_ICONS[p] || p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Flip Board Quick Icon */}
+                <button
+                  onClick={() =>
+                    setOpeningBoardOrientation(ori => (ori === 'white' ? 'black' : 'white'))
+                  }
+                  className="p-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 transition flex items-center gap-1 text-[11px]"
+                  title="Flip Board View (F)"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                  <span>Flip</span>
+                </button>
+              </div>
+
+              {/* Center: Classic Brown Chessboard */}
+              <div className="w-full max-w-[710px] flex items-stretch justify-center">
+                <ChessBoardContainer
+                  game={openingGame}
+                  boardOrientation={openingBoardOrientation}
+                  arrows={openingArrows}
+                  onPlayerMove={handleOpeningTestMove}
+                  isEngineThinking={false}
+                  allowBothSides={!isTestingOpening}
+                  lastMove={openingLastMove}
+                />
+              </div>
+
+              {/* Bottom Bar: Player Status & Stepper */}
+              <div className="w-full max-w-[710px] flex items-center justify-between pt-1.5 px-1 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded bg-[#312e2b] border border-zinc-700/60 flex items-center justify-center text-sm shadow-sm">
+                    {openingBoardOrientation === 'white' ? '♙' : '♟️'}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-white text-xs">
+                      {openingBoardOrientation === 'white' ? 'White' : 'Black'}
+                    </span>
+                    {openingMoveIndex > 0 && (
+                      <span className="text-[11px] font-mono bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold">
+                        {openingMoveIndex}. {selectedOpening.moves[openingMoveIndex - 1]}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Captured pieces */}
+                  <div className="flex items-center gap-0.5 ml-2 text-zinc-400 text-sm">
+                    {(openingBoardOrientation === 'white'
+                      ? openingCaptured.whiteCaptured
+                      : openingCaptured.blackCaptured
+                    ).map((p, idx) => (
+                      <span key={idx} className="leading-none text-zinc-300 opacity-85">
+                        {PIECE_ICONS[p] || p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Move Navigation Buttons */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleOpeningStep('start')}
+                    disabled={openingMoveIndex === 0}
+                    className="p-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                    title="Start of Opening (Home)"
+                  >
+                    <ChevronsLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleOpeningStep('prev')}
+                    disabled={openingMoveIndex === 0}
+                    className="p-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                    title="Previous Move (←)"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleOpeningStep('next')}
+                    disabled={openingMoveIndex >= selectedOpening.moves.length}
+                    className="p-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                    title="Next Move (→)"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleOpeningStep('end')}
+                    disabled={openingMoveIndex >= selectedOpening.moves.length}
+                    className="p-1 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                    title="End of Line (End)"
+                  >
+                    <ChevronsRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -1568,7 +1923,7 @@ export const App: React.FC = () => {
               }
               canTakeBack={vsFenHistoryRef.current.length > 1}
             />
-          ) : (
+          ) : activeTab === 'practice' ? (
             <PracticeBoardPanel
               moves={practiceMovesRecord}
               viewingIndex={practiceViewingIndex}
@@ -1591,6 +1946,30 @@ export const App: React.FC = () => {
               onToggleEvalBar={() => setPracticeShowEval(s => !s)}
               currentFen={practiceDisplayGame.fen()}
               onLoadFen={handlePracticeLoadFen}
+            />
+          ) : (
+            <OpeningsExplorerPanel
+              openings={OPENINGS_DATABASE}
+              selectedOpening={selectedOpening}
+              onSelectOpening={handleSelectOpening}
+              currentMoveIndex={openingMoveIndex}
+              onStepMove={handleOpeningStep}
+              isTesting={isTestingOpening}
+              onToggleTesting={handleToggleOpeningTesting}
+              testStatus={openingTestStatus}
+              testMessage={openingTestMessage}
+              onShowHint={handleShowOpeningHint}
+              onFlipBoard={() =>
+                setOpeningBoardOrientation(ori => (ori === 'white' ? 'black' : 'white'))
+              }
+              boardOrientation={openingBoardOrientation}
+              isAutoPlaying={isAutoPlayingOpening}
+              onToggleAutoPlay={() => {
+                if (openingMoveIndex >= selectedOpening.moves.length) {
+                  setOpeningMoveIndex(0);
+                }
+                setIsAutoPlayingOpening(prev => !prev);
+              }}
             />
           )}
         </div>

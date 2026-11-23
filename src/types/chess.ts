@@ -69,6 +69,11 @@ export interface OpeningInfo {
   name: string;
   moves: string[]; // UCI or SAN moves list
   description: string;
+  category?: 'e4' | 'd4' | 'flank' | 'traps';
+  side?: 'white' | 'black';
+  keyIdeas?: string[];
+  famousPlayers?: string;
+  targetPawnStructure?: string;
 }
 
 export interface CoachPersonality {
