@@ -64,6 +64,22 @@ export interface CoachCommentary {
   timestamp: number;
 }
 
+export interface StrategicPlan {
+  title: string;
+  description: string;
+  keyMoves?: string[];
+  pawnBreaks?: string[];
+  piecePlacement?: string;
+}
+
+export interface MiddlegameStrategy {
+  corePawnStructure: string;
+  whitePlans: StrategicPlan[];
+  blackPlans: StrategicPlan[];
+  criticalSquares: string[];
+  endgameTransitionNote?: string;
+}
+
 export interface OpeningInfo {
   eco: string;
   name: string;
@@ -74,6 +90,7 @@ export interface OpeningInfo {
   keyIdeas?: string[];
   famousPlayers?: string;
   targetPawnStructure?: string;
+  middlegameStrategy?: MiddlegameStrategy;
 }
 
 export interface CoachPersonality {

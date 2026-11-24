@@ -16,7 +16,13 @@ import {
   ArrowLeftRight,
   Trophy,
   Check,
-  Flame
+  Flame,
+  Swords,
+  Shield,
+  Target,
+  Compass,
+  Layers,
+  ArrowRight
 } from 'lucide-react';
 
 export interface OpeningsExplorerPanelProps {
@@ -54,6 +60,7 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'e4' | 'd4' | 'flank' | 'traps'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeSubTab, setActiveSubTab] = useState<'moves' | 'middlegame'>('moves');
 
   // Filter openings by category and search term
   const filteredOpenings = useMemo(() => {
@@ -84,24 +91,25 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
   }, [selectedOpening]);
 
   const totalMoves = selectedOpening.moves.length;
+  const strategy = selectedOpening.middlegameStrategy;
 
   return (
     <div className="flex flex-col h-full bg-[#21201d] border border-[#312e2b] rounded-xl overflow-hidden shadow-2xl">
       {/* Panel Top Header */}
-      <div className="p-4 bg-[#262522] border-b border-[#312e2b] flex items-center justify-between">
+      <div className="p-3.5 bg-[#262522] border-b border-[#312e2b] flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
             <BookOpen className="w-4 h-4" />
           </div>
           <div>
             <h2 className="font-bold text-white text-sm flex items-center gap-2">
-              Learn Openings & Traps
+              Learn Openings & Middlegames
               <span className="text-[10px] bg-emerald-400/20 text-emerald-300 px-2 py-0.5 rounded-full font-bold">
-                {openings.length} Lines
+                {openings.length} Popular Lines
               </span>
             </h2>
             <p className="text-[11px] text-zinc-400">
-              Master essential theory, strategic motifs & tactical traps
+              Grandmaster theory, deep lines & strategic battle plans
             </p>
           </div>
         </div>
@@ -114,14 +122,14 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
               ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
               : 'bg-[#312e2b] hover:bg-[#3d3a36] text-amber-300 border border-amber-500/30'
           }`}
-          title={isTesting ? 'Exit memory test mode' : 'Test your memory of this opening'}
+          title={isTesting ? 'Exit memory test mode' : 'Test your memory of this opening line'}
         >
           <Trophy className="w-3.5 h-3.5" />
           <span>{isTesting ? 'Exit Test' : 'Test Memory'}</span>
         </button>
       </div>
 
-      {/* Main Body: Two Columns (or Split View) */}
+      {/* Main Body: Two Columns (Left Directory, Right Content) */}
       <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-[#312e2b]">
         {/* LEFT COLUMN: Openings Directory (5 cols) */}
         <div className="md:col-span-5 flex flex-col h-full bg-[#1e1d1a] overflow-hidden">
@@ -188,7 +196,7 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search openings (e.g. Italian, Sicilian, Trap)..."
+                placeholder="Search line (e.g. Italian, Najdorf, Dragon, QGD)..."
                 className="w-full bg-[#181715] text-xs text-white pl-8 pr-3 py-1.5 rounded border border-zinc-700/60 focus:outline-none focus:border-emerald-500 transition placeholder:text-zinc-500"
               />
             </div>
@@ -231,7 +239,7 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
                           {op.side === 'white' ? '♙ White' : '♟ Black'}
                         </span>
                         <span>•</span>
-                        <span>{op.moves.length} moves</span>
+                        <span className="text-zinc-400 font-semibold">{op.moves.length} moves</span>
                         {op.category === 'traps' && (
                           <>
                             <span>•</span>
@@ -253,10 +261,10 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Active Opening Details & Step Narration (7 cols) */}
+        {/* RIGHT COLUMN: Active Opening Details & Section Switcher (7 cols) */}
         <div className="md:col-span-7 flex flex-col h-full bg-[#21201d] overflow-hidden">
           {/* Active Opening Banner */}
-          <div className="p-4 border-b border-[#312e2b] bg-[#262522]/60">
+          <div className="p-3.5 border-b border-[#312e2b] bg-[#262522]/60">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
@@ -265,6 +273,9 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
                   </span>
                   <span className="text-xs bg-[#181715] text-zinc-400 px-2 py-0.5 rounded border border-zinc-800 capitalize">
                     {selectedOpening.side === 'white' ? '♙ White perspective' : '♟ Black perspective'}
+                  </span>
+                  <span className="text-xs bg-[#181715] text-emerald-300 px-2 py-0.5 rounded border border-zinc-800">
+                    {totalMoves} ply line
                   </span>
                   {selectedOpening.category === 'traps' && (
                     <span className="text-xs bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded border border-rose-500/30 font-semibold flex items-center gap-1">
@@ -301,198 +312,430 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
             )}
           </div>
 
-          {/* Test Mode Banner or Move Controls */}
-          {isTesting ? (
-            <div className="p-3 bg-amber-500/10 border-b border-amber-500/30">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-amber-400 animate-bounce" />
-                  <span className="text-xs font-bold text-amber-300">
-                    Test Mode: Play {selectedOpening.name}
-                  </span>
-                </div>
-                <span className="text-[11px] font-mono text-amber-300/80">
-                  Move {currentMoveIndex} / {totalMoves}
-                </span>
-              </div>
+          {/* SECTION SWITCHER TABS: Move Sequence vs Middlegame Battle Plans */}
+          <div className="flex items-center bg-[#191816] border-b border-[#312e2b] px-3 py-1.5 gap-2">
+            <button
+              onClick={() => setActiveSubTab('moves')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeSubTab === 'moves'
+                  ? 'bg-[#81b64c] text-white shadow'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#262522]'
+              }`}
+            >
+              <span>♟️</span>
+              <span>Move Sequence & Line Explorer</span>
+            </button>
 
-              {testStatus === 'completed' ? (
-                <div className="mt-2 p-2 rounded bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>🎉 Line Mastered! You played all moves accurately!</span>
-                </div>
-              ) : testStatus === 'wrong' ? (
-                <div className="mt-2 p-2 rounded bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
-                    <span>{testMessage || "That's not the book move. Try again!"}</span>
+            <button
+              onClick={() => setActiveSubTab('middlegame')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeSubTab === 'middlegame'
+                  ? 'bg-amber-600 text-white shadow'
+                  : 'text-amber-300/80 hover:text-amber-200 hover:bg-[#262522]'
+              }`}
+            >
+              <Swords className="w-3.5 h-3.5 text-amber-400" />
+              <span>Middlegame Battle Plans</span>
+              <span className="text-[10px] bg-amber-400/20 text-amber-300 px-1.5 py-0.2 rounded-full font-bold">
+                Strategic Blueprint
+              </span>
+            </button>
+          </div>
+
+          {/* TAB CONTENT 1: MOVE SEQUENCE & LINE EXPLORER */}
+          {activeSubTab === 'moves' ? (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Test Mode Banner or Move Controls */}
+              {isTesting ? (
+                <div className="p-3 bg-amber-500/10 border-b border-amber-500/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-amber-400 animate-bounce" />
+                      <span className="text-xs font-bold text-amber-300">
+                        Test Mode: Play {selectedOpening.name}
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-amber-300/80">
+                      Move {currentMoveIndex} / {totalMoves}
+                    </span>
                   </div>
-                  <button
-                    onClick={onShowHint}
-                    className="ml-2 px-2 py-0.5 bg-rose-500 hover:bg-rose-600 text-white rounded text-[10px] font-bold transition"
-                  >
-                    Show Hint
-                  </button>
+
+                  {testStatus === 'completed' ? (
+                    <div className="mt-2 p-2 rounded bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>🎉 Line Mastered! You played all {totalMoves} moves accurately!</span>
+                    </div>
+                  ) : testStatus === 'wrong' ? (
+                    <div className="mt-2 p-2 rounded bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                        <span>{testMessage || "That's not the book move. Try again!"}</span>
+                      </div>
+                      <button
+                        onClick={onShowHint}
+                        className="ml-2 px-2 py-0.5 bg-rose-500 hover:bg-rose-600 text-white rounded text-[10px] font-bold transition"
+                      >
+                        Show Hint
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-2 flex items-center justify-between text-xs text-amber-200/90">
+                      <span>
+                        Play the next move on the board (
+                        {currentMoveIndex % 2 === 0 ? 'White to move' : 'Black to move'}).
+                      </span>
+                      <button
+                        onClick={onShowHint}
+                        className="flex items-center gap-1 text-[11px] text-amber-300 hover:text-white underline font-medium"
+                      >
+                        <Lightbulb className="w-3 h-3" />
+                        Hint
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="mt-2 flex items-center justify-between text-xs text-amber-200/90">
-                  <span>
-                    Play the next move on the board (
-                    {currentMoveIndex % 2 === 0 ? 'White to move' : 'Black to move'}).
-                  </span>
-                  <button
-                    onClick={onShowHint}
-                    className="flex items-center gap-1 text-[11px] text-amber-300 hover:text-white underline font-medium"
-                  >
-                    <Lightbulb className="w-3 h-3" />
-                    Hint
-                  </button>
+                /* Move Stepper Controls */
+                <div className="p-3 bg-[#1e1d1a] border-b border-[#312e2b] flex items-center justify-between">
+                  {/* Stepper Buttons */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => onStepMove('start')}
+                      disabled={currentMoveIndex === 0}
+                      className="p-1.5 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      title="First move (Home)"
+                    >
+                      <ChevronsLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => onStepMove('prev')}
+                      disabled={currentMoveIndex === 0}
+                      className="p-1.5 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      title="Previous move (←)"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => onStepMove('next')}
+                      disabled={currentMoveIndex >= totalMoves}
+                      className="p-1.5 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      title="Next move (→)"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => onStepMove('end')}
+                      disabled={currentMoveIndex >= totalMoves}
+                      className="p-1.5 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      title="Final position (End)"
+                    >
+                      <ChevronsRight className="w-4 h-4" />
+                    </button>
+
+                    {/* Auto-Play Toggle */}
+                    <button
+                      onClick={onToggleAutoPlay}
+                      className={`ml-2 px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition ${
+                        isAutoPlaying
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300'
+                      }`}
+                      title={isAutoPlaying ? 'Pause demonstration' : 'Auto-play line move by move'}
+                    >
+                      {isAutoPlaying ? (
+                        <>
+                          <Pause className="w-3.5 h-3.5" />
+                          <span>Pause</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5" />
+                          <span>Auto Play</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Progress Indicator */}
+                  <div className="text-xs text-zinc-400 font-mono">
+                    Step <span className="font-bold text-white">{currentMoveIndex}</span> / {totalMoves}
+                  </div>
                 </div>
               )}
+
+              {/* Moves Grid & Key Ideas Scrollable Section */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-zinc-700">
+                {/* Opening Moves Grid */}
+                <div>
+                  <h4 className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                    Move Sequence ({totalMoves} Moves Deep)
+                  </h4>
+                  <div className="bg-[#181715] p-2.5 rounded-lg border border-[#312e2b]">
+                    <div className="flex flex-wrap gap-1.5">
+                      {movePairs.map(pair => {
+                        const white = pair.white;
+                        const black = pair.black;
+                        return (
+                          <div
+                            key={pair.moveNum}
+                            className="flex items-center bg-[#21201d] rounded px-1.5 py-0.5 border border-zinc-800 text-xs"
+                          >
+                            <span className="text-zinc-500 font-mono text-[11px] mr-1">
+                              {pair.moveNum}.
+                            </span>
+                            {white && (
+                              <button
+                                onClick={() => onStepMove(white.index)}
+                                className={`px-1 rounded font-mono font-semibold transition ${
+                                  currentMoveIndex === white.index
+                                    ? 'bg-[#81b64c] text-white'
+                                    : 'text-zinc-200 hover:bg-[#312e2b]'
+                                }`}
+                              >
+                                {white.san}
+                              </button>
+                            )}
+                            {black && (
+                              <button
+                                onClick={() => onStepMove(black.index)}
+                                className={`ml-1 px-1 rounded font-mono font-semibold transition ${
+                                  currentMoveIndex === black.index
+                                    ? 'bg-[#81b64c] text-white'
+                                    : 'text-zinc-200 hover:bg-[#312e2b]'
+                                }`}
+                              >
+                                {black.san}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Key Strategic Ideas */}
+                {selectedOpening.keyIdeas && selectedOpening.keyIdeas.length > 0 && (
+                  <div>
+                    <h4 className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      Core Principles & Ideas
+                    </h4>
+                    <div className="space-y-1.5">
+                      {selectedOpening.keyIdeas.map((idea, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-lg bg-[#181715] border border-zinc-800 text-xs text-zinc-300 flex items-start gap-2.5"
+                        >
+                          <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
+                            {idx + 1}
+                          </span>
+                          <span className="leading-relaxed">{idea}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
-            /* Move Stepper Controls */
-            <div className="p-3 bg-[#1e1d1a] border-b border-[#312e2b] flex items-center justify-between">
-              {/* Stepper Buttons */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => onStepMove('start')}
-                  disabled={currentMoveIndex === 0}
-                  className="p-1.5 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                  title="First move (Home)"
-                >
-                  <ChevronsLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onStepMove('prev')}
-                  disabled={currentMoveIndex === 0}
-                  className="p-1.5 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                  title="Previous move (←)"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onStepMove('next')}
-                  disabled={currentMoveIndex >= totalMoves}
-                  className="p-1.5 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                  title="Next move (→)"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onStepMove('end')}
-                  disabled={currentMoveIndex >= totalMoves}
-                  className="p-1.5 rounded bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                  title="Final position (End)"
-                >
-                  <ChevronsRight className="w-4 h-4" />
-                </button>
-
-                {/* Auto-Play Toggle */}
-                <button
-                  onClick={onToggleAutoPlay}
-                  className={`ml-2 px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition ${
-                    isAutoPlaying
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300'
-                  }`}
-                  title={isAutoPlaying ? 'Pause demonstration' : 'Auto-play line move by move'}
-                >
-                  {isAutoPlaying ? (
-                    <>
-                      <Pause className="w-3.5 h-3.5" />
-                      <span>Pause</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-3.5 h-3.5" />
-                      <span>Auto Play</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Progress Indicator */}
-              <div className="text-xs text-zinc-400 font-mono">
-                Step <span className="font-bold text-white">{currentMoveIndex}</span> / {totalMoves}
-              </div>
-            </div>
-          )}
-
-          {/* Moves Grid & Key Ideas Scrollable Section */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-zinc-700">
-            {/* Opening Moves Grid */}
-            <div>
-              <h4 className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                Move Sequence
-              </h4>
-              <div className="bg-[#181715] p-2.5 rounded-lg border border-[#312e2b]">
-                <div className="flex flex-wrap gap-1.5">
-                  {movePairs.map(pair => {
-                    const white = pair.white;
-                    const black = pair.black;
-                    return (
-                      <div
-                        key={pair.moveNum}
-                        className="flex items-center bg-[#21201d] rounded px-1.5 py-0.5 border border-zinc-800 text-xs"
-                      >
-                        <span className="text-zinc-500 font-mono text-[11px] mr-1">
-                          {pair.moveNum}.
-                        </span>
-                        {white && (
-                          <button
-                            onClick={() => onStepMove(white.index)}
-                            className={`px-1 rounded font-mono font-semibold transition ${
-                              currentMoveIndex === white.index
-                                ? 'bg-[#81b64c] text-white'
-                                : 'text-zinc-200 hover:bg-[#312e2b]'
-                            }`}
-                          >
-                            {white.san}
-                          </button>
-                        )}
-                        {black && (
-                          <button
-                            onClick={() => onStepMove(black.index)}
-                            className={`ml-1 px-1 rounded font-mono font-semibold transition ${
-                              currentMoveIndex === black.index
-                                ? 'bg-[#81b64c] text-white'
-                                : 'text-zinc-200 hover:bg-[#312e2b]'
-                            }`}
-                          >
-                            {black.san}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+            /* TAB CONTENT 2: SEPARATE DEDICATED MIDDLEGAME BATTLE PLANS SECTION */
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-zinc-700">
+              {/* Core Pawn Structure Foundation */}
+              <div className="p-3.5 rounded-xl bg-[#1a1916] border border-amber-500/30 shadow-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-6 h-6 rounded-md bg-amber-500/20 flex items-center justify-center text-amber-400">
+                    <Layers className="w-3.5 h-3.5" />
+                  </div>
+                  <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wide">
+                    Pawn Structure & Strategic Foundation
+                  </h4>
                 </div>
+                <p className="text-xs text-zinc-300 leading-relaxed">
+                  {strategy?.corePawnStructure ||
+                    selectedOpening.targetPawnStructure ||
+                    "This opening establishes dynamic central tension with asymmetrical pawn structures dictating middlegame piece play."}
+                </p>
               </div>
-            </div>
 
-            {/* Key Strategic Ideas */}
-            {selectedOpening.keyIdeas && selectedOpening.keyIdeas.length > 0 && (
-              <div>
-                <h4 className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  Key Strategic Themes
-                </h4>
-                <div className="space-y-1.5">
-                  {selectedOpening.keyIdeas.map((idea, idx) => (
+              {/* White's Grandmaster Battle Plans */}
+              {strategy?.whitePlans && strategy.whitePlans.length > 0 && (
+                <div className="space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-zinc-200 text-zinc-900 flex items-center justify-center font-bold text-xs shadow-sm">
+                      ♙
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      White's Primary Middlegame Plans
+                    </h4>
+                  </div>
+
+                  {strategy.whitePlans.map((plan, idx) => (
                     <div
                       key={idx}
-                      className="p-2.5 rounded-lg bg-[#181715] border border-zinc-800 text-xs text-zinc-300 flex items-start gap-2.5"
+                      className="p-3.5 rounded-xl bg-[#181715] border border-zinc-800 space-y-2 hover:border-zinc-700 transition"
                     >
-                      <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
-                        {idx + 1}
-                      </span>
-                      <span className="leading-relaxed">{idea}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-emerald-400 flex items-center gap-1.5">
+                          <Compass className="w-3.5 h-3.5 text-emerald-400" />
+                          {plan.title}
+                        </span>
+                        {plan.pawnBreaks && plan.pawnBreaks.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            {plan.pawnBreaks.map(pb => (
+                              <span
+                                key={pb}
+                                className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-bold border border-emerald-500/30"
+                              >
+                                Break: {pb}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-zinc-300 leading-relaxed">
+                        {plan.description}
+                      </p>
+
+                      {plan.keyMoves && plan.keyMoves.length > 0 && (
+                        <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] text-zinc-500 font-semibold uppercase">
+                            Key Move Path:
+                          </span>
+                          {plan.keyMoves.map((m, mIdx) => (
+                            <React.Fragment key={m}>
+                              <span className="text-[11px] font-mono bg-[#21201d] text-zinc-200 px-1.5 py-0.5 rounded border border-zinc-800">
+                                {m}
+                              </span>
+                              {mIdx < plan.keyMoves!.length - 1 && (
+                                <ArrowRight className="w-2.5 h-2.5 text-zinc-600" />
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      )}
+
+                      {plan.piecePlacement && (
+                        <div className="text-[11px] text-zinc-400 pt-0.5 flex items-center gap-1.5">
+                          <span className="text-zinc-500 font-semibold">Ideal Setup:</span>
+                          <span className="text-zinc-300">{plan.piecePlacement}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+
+              {/* Black's Grandmaster Counter-Plans */}
+              {strategy?.blackPlans && strategy.blackPlans.length > 0 && (
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-zinc-800 text-zinc-200 flex items-center justify-center font-bold text-xs border border-zinc-700 shadow-sm">
+                      ♟
+                    </div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Black's Strategic Counter-Plans
+                    </h4>
+                  </div>
+
+                  {strategy.blackPlans.map((plan, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3.5 rounded-xl bg-[#181715] border border-zinc-800 space-y-2 hover:border-zinc-700 transition"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-sky-400 flex items-center gap-1.5">
+                          <Shield className="w-3.5 h-3.5 text-sky-400" />
+                          {plan.title}
+                        </span>
+                        {plan.pawnBreaks && plan.pawnBreaks.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            {plan.pawnBreaks.map(pb => (
+                              <span
+                                key={pb}
+                                className="text-[10px] font-mono bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded font-bold border border-sky-500/30"
+                              >
+                                Break: {pb}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-zinc-300 leading-relaxed">
+                        {plan.description}
+                      </p>
+
+                      {plan.keyMoves && plan.keyMoves.length > 0 && (
+                        <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] text-zinc-500 font-semibold uppercase">
+                            Key Move Path:
+                          </span>
+                          {plan.keyMoves.map((m, mIdx) => (
+                            <React.Fragment key={m}>
+                              <span className="text-[11px] font-mono bg-[#21201d] text-zinc-200 px-1.5 py-0.5 rounded border border-zinc-800">
+                                {m}
+                              </span>
+                              {mIdx < plan.keyMoves!.length - 1 && (
+                                <ArrowRight className="w-2.5 h-2.5 text-zinc-600" />
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      )}
+
+                      {plan.piecePlacement && (
+                        <div className="text-[11px] text-zinc-400 pt-0.5 flex items-center gap-1.5">
+                          <span className="text-zinc-500 font-semibold">Ideal Setup:</span>
+                          <span className="text-zinc-300">{plan.piecePlacement}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Critical Squares & Outpost Radar */}
+              {strategy?.criticalSquares && strategy.criticalSquares.length > 0 && (
+                <div className="p-3.5 rounded-xl bg-[#181715] border border-zinc-800 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-rose-400" />
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Critical Squares & Battleground Outposts
+                    </h4>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap pt-1">
+                    {strategy.criticalSquares.map(sq => (
+                      <span
+                        key={sq}
+                        className="px-2.5 py-1 rounded bg-[#262522] border border-zinc-700 text-xs font-mono font-bold text-amber-300 flex items-center gap-1"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                        {sq}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-zinc-400 pt-1 leading-relaxed">
+                    Control of these pivotal squares frequently decides who achieves breakthrough vs who is driven into passive defense.
+                  </p>
+                </div>
+              )}
+
+              {/* Endgame Transition Guidance */}
+              {strategy?.endgameTransitionNote && (
+                <div className="p-3.5 rounded-xl bg-[#181715] border border-zinc-800 space-y-1.5">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <span>👑</span>
+                    <span>Endgame Transition & Pawn Skeletons</span>
+                  </h4>
+                  <p className="text-xs text-zinc-300 leading-relaxed">
+                    {strategy.endgameTransitionNote}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
