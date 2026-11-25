@@ -1,7 +1,7 @@
 import React from 'react';
-import { GameSettings } from '../../types/chess';
+import { GameSettings, TIME_CONTROLS } from '../../types/chess';
 import { COACH_PERSONALITIES } from '../../data/personalities';
-import { X, Volume2, Shield, Eye, Users } from 'lucide-react';
+import { X, Volume2, Shield, Eye, Users, Timer } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -128,6 +128,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               >
                 <span>⚫ Black (Coach First)</span>
               </button>
+            </div>
+          </div>
+
+          {/* Time Control Preference */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
+              <Timer className="w-3.5 h-3.5 text-emerald-400" />
+              Default Match Clock / Time Control
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {TIME_CONTROLS.slice(0, 6).map(tc => {
+                const isSelected = (localSettings.timeControlId || 'unlimited') === tc.id;
+                return (
+                  <button
+                    key={tc.id}
+                    type="button"
+                    onClick={() => setLocalSettings(s => ({ ...s, timeControlId: tc.id }))}
+                    className={`p-2.5 rounded-xl border text-left transition flex items-center gap-2.5 ${
+                      isSelected
+                        ? 'bg-emerald-500/15 border-emerald-500/60 text-white shadow-sm'
+                        : 'bg-slate-800/40 border-slate-800 hover:border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <span className="text-lg">{tc.icon}</span>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">{tc.name}</div>
+                      <div className="text-[10px] text-slate-400 truncate">{tc.category}</div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

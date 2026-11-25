@@ -117,11 +117,10 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
         {/* Quick Test / Practice Mode Toggle */}
         <button
           onClick={onToggleTesting}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm ${
-            isTesting
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm ${isTesting
               ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
               : 'bg-[#312e2b] hover:bg-[#3d3a36] text-amber-300 border border-amber-500/30'
-          }`}
+            }`}
           title={isTesting ? 'Exit memory test mode' : 'Test your memory of this opening line'}
         >
           <Trophy className="w-3.5 h-3.5" />
@@ -137,51 +136,46 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
           <div className="p-2 border-b border-[#312e2b] grid grid-cols-5 gap-1 text-[11px]">
             <button
               onClick={() => setSelectedCategory('all')}
-              className={`py-1 rounded font-semibold transition text-center ${
-                selectedCategory === 'all'
+              className={`py-1 rounded font-semibold transition text-center ${selectedCategory === 'all'
                   ? 'bg-[#81b64c] text-white shadow'
                   : 'bg-[#262522] text-zinc-400 hover:text-white'
-              }`}
+                }`}
             >
               All
             </button>
             <button
               onClick={() => setSelectedCategory('e4')}
-              className={`py-1 rounded font-semibold transition text-center ${
-                selectedCategory === 'e4'
+              className={`py-1 rounded font-semibold transition text-center ${selectedCategory === 'e4'
                   ? 'bg-[#81b64c] text-white shadow'
                   : 'bg-[#262522] text-zinc-400 hover:text-white'
-              }`}
+                }`}
             >
               1. e4
             </button>
             <button
               onClick={() => setSelectedCategory('d4')}
-              className={`py-1 rounded font-semibold transition text-center ${
-                selectedCategory === 'd4'
+              className={`py-1 rounded font-semibold transition text-center ${selectedCategory === 'd4'
                   ? 'bg-[#81b64c] text-white shadow'
                   : 'bg-[#262522] text-zinc-400 hover:text-white'
-              }`}
+                }`}
             >
               1. d4
             </button>
             <button
               onClick={() => setSelectedCategory('flank')}
-              className={`py-1 rounded font-semibold transition text-center ${
-                selectedCategory === 'flank'
+              className={`py-1 rounded font-semibold transition text-center ${selectedCategory === 'flank'
                   ? 'bg-[#81b64c] text-white shadow'
                   : 'bg-[#262522] text-zinc-400 hover:text-white'
-              }`}
+                }`}
             >
               Flank
             </button>
             <button
               onClick={() => setSelectedCategory('traps')}
-              className={`py-1 rounded font-semibold transition text-center flex items-center justify-center gap-0.5 ${
-                selectedCategory === 'traps'
+              className={`py-1 rounded font-semibold transition text-center flex items-center justify-center gap-0.5 ${selectedCategory === 'traps'
                   ? 'bg-rose-500 text-white shadow'
                   : 'bg-[#262522] text-rose-300 hover:text-white'
-              }`}
+                }`}
             >
               <Flame className="w-2.5 h-2.5" />
               Traps
@@ -215,11 +209,10 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
                   <button
                     key={op.name}
                     onClick={() => onSelectOpening(op)}
-                    className={`w-full text-left p-2.5 transition flex items-center justify-between group ${
-                      isSelected
+                    className={`w-full text-left p-2.5 transition flex items-center justify-between group ${isSelected
                         ? 'bg-[#2b2a26] border-l-4 border-[#81b64c]'
                         : 'hover:bg-[#262522] border-l-4 border-transparent'
-                    }`}
+                      }`}
                   >
                     <div className="min-w-0 pr-2">
                       <div className="flex items-center gap-1.5">
@@ -227,9 +220,8 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
                           {op.eco}
                         </span>
                         <span
-                          className={`text-xs font-bold truncate ${
-                            isSelected ? 'text-white' : 'text-zinc-300 group-hover:text-white'
-                          }`}
+                          className={`text-xs font-bold truncate ${isSelected ? 'text-white' : 'text-zinc-300 group-hover:text-white'
+                            }`}
                         >
                           {op.name}
                         </span>
@@ -316,11 +308,10 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
           <div className="flex items-center bg-[#191816] border-b border-[#312e2b] px-3 py-1.5 gap-2">
             <button
               onClick={() => setActiveSubTab('moves')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                activeSubTab === 'moves'
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${activeSubTab === 'moves'
                   ? 'bg-[#81b64c] text-white shadow'
                   : 'text-zinc-400 hover:text-white hover:bg-[#262522]'
-              }`}
+                }`}
             >
               <span>♟️</span>
               <span>Move Sequence & Line Explorer</span>
@@ -328,11 +319,10 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
 
             <button
               onClick={() => setActiveSubTab('middlegame')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                activeSubTab === 'middlegame'
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${activeSubTab === 'middlegame'
                   ? 'bg-amber-600 text-white shadow'
                   : 'text-amber-300/80 hover:text-amber-200 hover:bg-[#262522]'
-              }`}
+                }`}
             >
               <Swords className="w-3.5 h-3.5 text-amber-400" />
               <span>Middlegame Battle Plans</span>
@@ -435,11 +425,10 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
                     {/* Auto-Play Toggle */}
                     <button
                       onClick={onToggleAutoPlay}
-                      className={`ml-2 px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition ${
-                        isAutoPlaying
+                      className={`ml-2 px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition ${isAutoPlaying
                           ? 'bg-emerald-600 text-white'
                           : 'bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300'
-                      }`}
+                        }`}
                       title={isAutoPlaying ? 'Pause demonstration' : 'Auto-play line move by move'}
                     >
                       {isAutoPlaying ? (
@@ -486,11 +475,10 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
                             {white && (
                               <button
                                 onClick={() => onStepMove(white.index)}
-                                className={`px-1 rounded font-mono font-semibold transition ${
-                                  currentMoveIndex === white.index
+                                className={`px-1 rounded font-mono font-semibold transition ${currentMoveIndex === white.index
                                     ? 'bg-[#81b64c] text-white'
                                     : 'text-zinc-200 hover:bg-[#312e2b]'
-                                }`}
+                                  }`}
                               >
                                 {white.san}
                               </button>
@@ -498,11 +486,10 @@ export const OpeningsExplorerPanel: React.FC<OpeningsExplorerPanelProps> = ({
                             {black && (
                               <button
                                 onClick={() => onStepMove(black.index)}
-                                className={`ml-1 px-1 rounded font-mono font-semibold transition ${
-                                  currentMoveIndex === black.index
+                                className={`ml-1 px-1 rounded font-mono font-semibold transition ${currentMoveIndex === black.index
                                     ? 'bg-[#81b64c] text-white'
                                     : 'text-zinc-200 hover:bg-[#312e2b]'
-                                }`}
+                                  }`}
                               >
                                 {black.san}
                               </button>

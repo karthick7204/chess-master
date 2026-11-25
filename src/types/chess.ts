@@ -161,6 +161,29 @@ export const COMPUTER_BOTS: ComputerBot[] = [
   }
 ];
 
+export interface TimeControl {
+  id: string;
+  name: string;
+  label: string; // e.g. "3 min" or "10 min"
+  category: 'unlimited' | 'bullet' | 'blitz' | 'rapid' | 'classical';
+  initialSeconds: number; // 0 for unlimited, 180 for 3m, 600 for 10m
+  incrementSeconds: number; // 0, 1, 2, 3, 5, 10
+  icon: string; // "⚡", "⏱️", "🔥", "⏳", "♾️"
+}
+
+export const TIME_CONTROLS: TimeControl[] = [
+  { id: 'unlimited', name: 'Unlimited', label: 'Casual (No Clock)', category: 'unlimited', initialSeconds: 0, incrementSeconds: 0, icon: '♾️' },
+  { id: '1+0', name: '1 min', label: '1 min • Bullet', category: 'bullet', initialSeconds: 60, incrementSeconds: 0, icon: '⚡' },
+  { id: '2+1', name: '2 | 1', label: '2 min + 1s • Bullet', category: 'bullet', initialSeconds: 120, incrementSeconds: 1, icon: '⚡' },
+  { id: '3+0', name: '3 min', label: '3 min • Blitz', category: 'blitz', initialSeconds: 180, incrementSeconds: 0, icon: '⚡' },
+  { id: '3+2', name: '3 | 2', label: '3 min + 2s • Blitz', category: 'blitz', initialSeconds: 180, incrementSeconds: 2, icon: '⚡' },
+  { id: '5+0', name: '5 min', label: '5 min • Blitz', category: 'blitz', initialSeconds: 300, incrementSeconds: 0, icon: '🔥' },
+  { id: '5+3', name: '5 | 3', label: '5 min + 3s • Blitz', category: 'blitz', initialSeconds: 300, incrementSeconds: 3, icon: '🔥' },
+  { id: '10+0', name: '10 min', label: '10 min • Rapid', category: 'rapid', initialSeconds: 600, incrementSeconds: 0, icon: '⏱️' },
+  { id: '15+10', name: '15 | 10', label: '15 min + 10s • Rapid', category: 'rapid', initialSeconds: 900, incrementSeconds: 10, icon: '⏱️' },
+  { id: '30+0', name: '30 min', label: '30 min • Classical', category: 'classical', initialSeconds: 1800, incrementSeconds: 0, icon: '⏳' },
+];
+
 export interface GameSettings {
   playerColor: PieceColor;
   difficulty: number; // 1 (800 ELO) to 5 (2200 ELO)
@@ -169,4 +192,5 @@ export interface GameSettings {
   autoPlayCoach: boolean;
   showArrows: boolean;
   showThreats: boolean;
+  timeControlId?: string;
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ComputerBot, COMPUTER_BOTS, PieceColor } from '../../types/chess';
-import { RotateCcw, Undo2, Flag, ArrowLeftRight, ChevronDown, Check, Bot } from 'lucide-react';
+import { ComputerBot, COMPUTER_BOTS, PieceColor, TimeControl, TIME_CONTROLS } from '../../types/chess';
+import { RotateCcw, Undo2, Flag, ArrowLeftRight, ChevronDown, Check, Bot, Timer } from 'lucide-react';
 
 interface StoredMoveRecord {
   from: string;
@@ -13,6 +13,8 @@ interface VsComputerPanelProps {
   onSelectBot: (bot: ComputerBot) => void;
   playerColor: PieceColor;
   onChangePlayerColor: (color: PieceColor) => void;
+  timeControl: TimeControl;
+  onSelectTimeControl: (tc: TimeControl) => void;
   moves: StoredMoveRecord[];
   viewingIndex: number;
   onSelectMoveIndex: (index: number) => void;
@@ -32,6 +34,8 @@ export const VsComputerPanel: React.FC<VsComputerPanelProps> = ({
   onSelectBot,
   playerColor,
   onChangePlayerColor,
+  timeControl,
+  onSelectTimeControl,
   moves,
   viewingIndex,
   onSelectMoveIndex,
@@ -46,6 +50,7 @@ export const VsComputerPanel: React.FC<VsComputerPanelProps> = ({
   canTakeBack
 }) => {
   const [isBotSelectorOpen, setIsBotSelectorOpen] = useState(false);
+  const [isTimeSelectorOpen, setIsTimeSelectorOpen] = useState(false);
 
   // Group moves into turn pairs: [ { moveNum: 1, whiteIndex: 1, whiteSan: 'e4', blackIndex: 2, blackSan: 'e5' } ]
   const movePairs: { moveNum: number; whiteIndex?: number; whiteSan?: string; blackIndex?: number; blackSan?: string }[] = [];
@@ -167,6 +172,93 @@ export const VsComputerPanel: React.FC<VsComputerPanelProps> = ({
                     ⚫ Black
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Match Time Control Card */}
+        <div className="bg-[#262522] rounded-xl border border-[#363430] p-3 shadow-md space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <Timer className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Time Control:</span>
+                  <span className="text-[#81b64c]">{timeControl.name}</span>
+                </div>
+                <div className="text-[10px] text-zinc-400">
+                  {timeControl.label}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsTimeSelectorOpen(!isTimeSelectorOpen)}
+              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#312e2b] hover:bg-[#3d3a36] text-zinc-300 transition flex items-center gap-1"
+            >
+              <span>{isTimeSelectorOpen ? 'Close' : 'Change'}</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isTimeSelectorOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+
+          {/* Quick Preset Pills */}
+          <div className="grid grid-cols-4 gap-1.5 pt-1 text-[11px]">
+            {['unlimited', '3+0', '5+0', '10+0'].map(id => {
+              const tc = TIME_CONTROLS.find(t => t.id === id) || TIME_CONTROLS[0];
+              const isSelected = tc.id === timeControl.id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => onSelectTimeControl(tc)}
+                  className={`py-1 px-1.5 rounded-md font-semibold text-center transition flex items-center justify-center gap-1 ${
+                    isSelected
+                      ? 'bg-[#81b64c] text-white shadow-sm'
+                      : 'bg-[#1e1d1b] text-zinc-300 hover:bg-[#2b2926]'
+                  }`}
+                >
+                  <span className="text-xs">{tc.icon}</span>
+                  <span className="truncate">{tc.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Expanded Time Control List */}
+          {isTimeSelectorOpen && (
+            <div className="pt-2 border-t border-[#363430] space-y-1 max-h-48 overflow-y-auto custom-scrollbar">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                Choose Time Control
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {TIME_CONTROLS.map(tc => {
+                  const isSelected = tc.id === timeControl.id;
+                  return (
+                    <button
+                      key={tc.id}
+                      onClick={() => {
+                        onSelectTimeControl(tc);
+                        setIsTimeSelectorOpen(false);
+                      }}
+                      className={`flex items-center justify-between p-2 rounded-lg text-left transition ${
+                        isSelected
+                          ? 'bg-[#81b64c]/20 border border-[#81b64c]/50 text-white'
+                          : 'bg-[#1e1d1b] hover:bg-[#2b2926] text-zinc-300 border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-sm shrink-0">{tc.icon}</span>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-xs truncate">{tc.name}</div>
+                          <div className="text-[9px] text-zinc-400 truncate">{tc.label}</div>
+                        </div>
+                      </div>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-[#81b64c] shrink-0" />}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

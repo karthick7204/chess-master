@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Chess, Square, PieceSymbol } from 'chess.js';
 import { ChessBoardContainer } from './components/Board/ChessBoardContainer';
 import { EvaluationBar } from './components/Board/EvaluationBar';
+import { ChessClock } from './components/Board/ChessClock';
 import { CoachPanel } from './components/Coach/CoachPanel';
 import { VsComputerPanel } from './components/VsComputer/VsComputerPanel';
 import { PracticeBoardPanel } from './components/Practice/PracticeBoardPanel';
@@ -21,7 +22,9 @@ import {
   MoveQuality,
   ComputerBot,
   COMPUTER_BOTS,
-  PieceColor
+  PieceColor,
+  TimeControl,
+  TIME_CONTROLS
 } from './types/chess';
 import { COACH_PERSONALITIES } from './data/personalities';
 import { OPENINGS_DATABASE, findOpeningByMoves } from './data/openings';
@@ -128,6 +131,10 @@ export const App: React.FC = () => {
   // ==========================================
   const [vsBot, setVsBot] = useState<ComputerBot>(COMPUTER_BOTS[1]); // Default Martin 1000
   const [vsPlayerColor, setVsPlayerColor] = useState<PieceColor>('w');
+  const [vsTimeControl, setVsTimeControl] = useState<TimeControl>(TIME_CONTROLS[7]); // Default 10 min Rapid
+  const [vsWhiteTime, setVsWhiteTime] = useState<number>(600);
+  const [vsBlackTime, setVsBlackTime] = useState<number>(600);
+  const [isVsClockRunning, setIsVsClockRunning] = useState<boolean>(false);
   const [vsGame, setVsGame] = useState<Chess>(new Chess());
   const [vsBoardOrientation, setVsBoardOrientation] = useState<'white' | 'black'>('white');
   const [vsIsEngineThinking, setVsIsEngineThinking] = useState(false);
@@ -872,6 +879,15 @@ export const App: React.FC = () => {
             san: executedMove.san
           });
 
+          // Apply time increment to Bot
+          if (vsTimeControl.initialSeconds > 0 && vsTimeControl.incrementSeconds > 0) {
+            if (executedMove.color === 'w') {
+              setVsWhiteTime(t => t + vsTimeControl.incrementSeconds);
+            } else {
+              setVsBlackTime(t => t + vsTimeControl.incrementSeconds);
+            }
+          }
+
           setVsViewingIndex(vsFenHistoryRef.current.length - 1);
           refreshVsEvaluation(gameCopy);
 
@@ -940,6 +956,18 @@ export const App: React.FC = () => {
       setVsViewingIndex(newFenHistory.length - 1);
       refreshVsEvaluation(gameCopy);
 
+      // Start clock if game has started and time control is active
+      if (vsTimeControl.initialSeconds > 0) {
+        setIsVsClockRunning(true);
+        if (vsTimeControl.incrementSeconds > 0) {
+          if (executedMove.color === 'w') {
+            setVsWhiteTime(t => t + vsTimeControl.incrementSeconds);
+          } else {
+            setVsBlackTime(t => t + vsTimeControl.incrementSeconds);
+          }
+        }
+      }
+
       if (gameCopy.isGameOver()) {
         handleVsGameOverCheck(gameCopy);
         return true;
@@ -977,11 +1005,12 @@ export const App: React.FC = () => {
     }
 
     if (winner) {
+      setIsVsClockRunning(false);
       setVsGameOver({ isOpen: true, winner, reason });
     }
   };
 
-  const startNewVsGame = useCallback((colorOverride?: PieceColor, botOverride?: ComputerBot) => {
+  const startNewVsGame = useCallback((colorOverride?: PieceColor, botOverride?: ComputerBot, tcOverride?: TimeControl) => {
     if (vsTimeoutRef.current) {
       clearTimeout(vsTimeoutRef.current);
       vsTimeoutRef.current = null;
@@ -989,6 +1018,7 @@ export const App: React.FC = () => {
 
     const targetBot = botOverride || vsBot;
     const targetColor = colorOverride || vsPlayerColor;
+    const targetTc = tcOverride || vsTimeControl;
 
     const newChess = new Chess();
     vsFenHistoryRef.current = [newChess.fen()];
@@ -999,6 +1029,16 @@ export const App: React.FC = () => {
     setVsGameOver({ isOpen: false, winner: null, reason: '' });
     setVsBoardOrientation(targetColor === 'w' ? 'white' : 'black');
     setVsIsEngineThinking(false);
+
+    // Reset clocks
+    if (targetTc.initialSeconds > 0) {
+      setVsWhiteTime(targetTc.initialSeconds);
+      setVsBlackTime(targetTc.initialSeconds);
+    } else {
+      setVsWhiteTime(0);
+      setVsBlackTime(0);
+    }
+    setIsVsClockRunning(false);
 
     if (targetColor === 'b') {
       // Bot plays first move as White
@@ -1020,6 +1060,14 @@ export const App: React.FC = () => {
               });
               setVsViewingIndex(1);
               refreshVsEvaluation(gameCopy);
+
+              // Clock starts for Black and White gets increment if applicable
+              if (targetTc.initialSeconds > 0) {
+                setIsVsClockRunning(true);
+                if (targetTc.incrementSeconds > 0) {
+                  setVsWhiteTime(t => t + targetTc.incrementSeconds);
+                }
+              }
             }
           }
         } finally {
@@ -1028,7 +1076,57 @@ export const App: React.FC = () => {
         }
       }, 500);
     }
-  }, [vsBot, vsPlayerColor, refreshVsEvaluation]);
+  }, [vsBot, vsPlayerColor, vsTimeControl, refreshVsEvaluation]);
+
+  // Digital Chess Clock Timer for Vs Computer
+  useEffect(() => {
+    if (activeTab !== 'vs-computer') return;
+    if (vsTimeControl.initialSeconds === 0) return;
+    if (!isVsClockRunning || vsGameOver.isOpen) return;
+
+    const timer = setInterval(() => {
+      const activeSide = vsGame.turn(); // 'w' or 'b'
+      if (activeSide === 'w') {
+        setVsWhiteTime(prev => {
+          if (prev <= 0.1) {
+            clearInterval(timer);
+            setIsVsClockRunning(false);
+            SoundService.playTimeout();
+            setVsGameOver({
+              isOpen: true,
+              winner: vsPlayerColor === 'w' ? 'coach' : 'player',
+              reason: 'Time out! White ran out of time.'
+            });
+            return 0;
+          }
+          if (prev <= 10.1 && Math.floor(prev) !== Math.floor(prev - 0.1)) {
+            SoundService.playLowTimeWarning();
+          }
+          return Math.max(0, +(prev - 0.1).toFixed(1));
+        });
+      } else {
+        setVsBlackTime(prev => {
+          if (prev <= 0.1) {
+            clearInterval(timer);
+            setIsVsClockRunning(false);
+            SoundService.playTimeout();
+            setVsGameOver({
+              isOpen: true,
+              winner: vsPlayerColor === 'b' ? 'coach' : 'player',
+              reason: 'Time out! Black ran out of time.'
+            });
+            return 0;
+          }
+          if (prev <= 10.1 && Math.floor(prev) !== Math.floor(prev - 0.1)) {
+            SoundService.playLowTimeWarning();
+          }
+          return Math.max(0, +(prev - 0.1).toFixed(1));
+        });
+      }
+    }, 100);
+
+    return () => clearInterval(timer);
+  }, [activeTab, vsTimeControl, isVsClockRunning, vsGameOver.isOpen, vsGame, vsPlayerColor]);
 
   const handleVsTakeBack = () => {
     if (vsFenHistoryRef.current.length <= 1) return;
@@ -1065,6 +1163,7 @@ export const App: React.FC = () => {
   };
 
   const handleVsResign = () => {
+    setIsVsClockRunning(false);
     setVsGameOver({
       isOpen: true,
       winner: 'coach',
@@ -1494,12 +1593,22 @@ export const App: React.FC = () => {
                   </div>
                 </div>
 
-                {vsIsEngineThinking && (
-                  <span className="text-[11px] font-semibold text-amber-400 flex items-center gap-1 animate-pulse">
-                    <span className="w-2 h-2 rounded-full bg-amber-400" />
-                    Thinking...
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {vsIsEngineThinking && (
+                    <span className="text-[11px] font-semibold text-amber-400 flex items-center gap-1 animate-pulse">
+                      <span className="w-2 h-2 rounded-full bg-amber-400" />
+                      Thinking...
+                    </span>
+                  )}
+
+                  {/* Opponent Digital Chess Clock */}
+                  <ChessClock
+                    timeRemaining={vsPlayerColor === 'w' ? vsBlackTime : vsWhiteTime}
+                    isActive={vsGame.turn() !== vsPlayerColor && !vsGameOver.isOpen && isVsClockRunning}
+                    isUnlimited={vsTimeControl.initialSeconds === 0}
+                    playerName={vsBot.name}
+                  />
+                </div>
               </div>
 
               {/* Center: Evaluation Bar + Classic Brown Chessboard */}
@@ -1545,8 +1654,18 @@ export const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Move Navigation Buttons */}
-                <div className="flex items-center gap-1">
+                {/* Right side: Player Clock & Move Navigation Buttons */}
+                <div className="flex items-center gap-2.5">
+                  {/* Player Digital Chess Clock */}
+                  <ChessClock
+                    timeRemaining={vsPlayerColor === 'w' ? vsWhiteTime : vsBlackTime}
+                    isActive={vsGame.turn() === vsPlayerColor && !vsGameOver.isOpen && isVsClockRunning}
+                    isUnlimited={vsTimeControl.initialSeconds === 0}
+                    playerName="You"
+                  />
+
+                  {/* Move Navigation Buttons */}
+                  <div className="flex items-center gap-1">
                   <button
                     onClick={() => setVsViewingIndex(0)}
                     disabled={vsViewingIndex === 0}
@@ -1590,7 +1709,8 @@ export const App: React.FC = () => {
                   )}
                 </div>
               </div>
-            </>
+            </div>
+          </>
           ) : activeTab === 'practice' ? (
             /* PRACTICE BOARD VIEW (Free 2-Player & Teaching) */
             <>
@@ -1907,6 +2027,11 @@ export const App: React.FC = () => {
               onChangePlayerColor={color => {
                 setVsPlayerColor(color);
                 startNewVsGame(color, vsBot);
+              }}
+              timeControl={vsTimeControl}
+              onSelectTimeControl={tc => {
+                setVsTimeControl(tc);
+                startNewVsGame(vsPlayerColor, vsBot, tc);
               }}
               moves={vsMovesRecordRef.current}
               viewingIndex={vsViewingIndex}
